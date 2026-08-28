@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Тренажёр: безопасное движение у погрузочного дока</title>
+  <style>
+    :root {
+      --navy: #173f59;
+      --navy-2: #245d80;
+      --ink: #14222c;
+      --muted: #5d6d78;
+      --line: #d8e2e8;
+      --panel: #f6f9fb;
+      --blue-soft: #eaf3f8;
+      --green: #25845b;
+      --green-soft: #e8f6ef;
+      --amber: #b7800d;
+      --amber-soft: #fff5d8;
+      --red: #b9413c;
+      --red-soft: #fff0ef;
+      --white: #fff;
+      --shadow: 0 14px 36px rgba(20, 54, 75, .13);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      margin: 0;
+      background: #edf2f5;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      overflow-x: hidden;
+    }
+
+    button { font: inherit; }
+
+    .trainer {
+      width: 100vw;
+      height: min(600px, 100vh);
+      max-height: 600px;
+      min-height: 480px;
+      overflow: hidden;
+      background: var(--white);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      min-height: 84px;
+      padding: 16px clamp(18px, 3.4vw, 52px) 13px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: minmax(250px, 1fr) minmax(390px, 1.25fr);
+      align-items: center;
+      gap: 28px;
+      background: rgba(255,255,255,.97);
+    }
+
+    .brand__eyebrow {
+      margin: 0 0 3px;
+      font-size: 11px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(19px, 2vw, 27px);
+      line-height: 1.12;
+      letter-spacing: -.025em;
+    }
+
+    .steps {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .step {
+      position: relative;
+      min-width: 0;
+      padding-top: 19px;
+      color: #778792;
+      font-size: 11px;
+      line-height: 1.14;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .step::before {
+      content: attr(data-n);
+      position: absolute;
+      top: 0;
+      left: 50%;
+      translate: -50% -2px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #dbe4e9;
+      color: #647681;
+      display: grid;
+      place-items: center;
+      z-index: 2;
+      font-size: 11px;
+      font-weight: 900;
+      transition: .25s ease;
+    }
+
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      height: 3px;
+      border-radius: 8px;
+      background: #dbe4e9;
+      width: calc(100% - 23px);
+      top: 7px;
+      left: calc(50% + 12px);
+      transition: .25s ease;
+    }
+
+    .step.is-active { color: var(--navy); }
+    .step.is-active::before { background: var(--navy); color: #fff; box-shadow: 0 0 0 4px var(--blue-soft); }
+    .step.is-done { color: var(--green); }
+    .step.is-done::before { content: "✓"; background: var(--green); color: #fff; }
+    .step.is-done::after { background: var(--green); }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(330px, .85fr) minmax(500px, 1.15fr);
+    }
+
+    .scene {
+      position: relative;
+      overflow: hidden;
+      padding: 22px clamp(20px, 3vw, 44px) 20px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(65,134,171,.32), transparent 35%),
+        linear-gradient(155deg, #173f59 0%, #102f43 100%);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 12px;
+    }
+
+    .scene::after {
+      content: "";
+      position: absolute;
+      width: 250px;
+      height: 250px;
+      border: 46px solid rgba(255,255,255,.035);
+      border-radius: 50%;
+      left: -110px;
+      bottom: -155px;
+      pointer-events: none;
+    }
+
+    .scene__label {
+      width: max-content;
+      max-width: 100%;
+      border: 1px solid rgba(255,255,255,.22);
+      background: rgba(255,255,255,.10);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .scene h2 {
+      margin: 8px 0 0;
+      max-width: 540px;
+      font-size: clamp(18px, 1.75vw, 25px);
+      line-height: 1.18;
+      letter-spacing: -.02em;
+    }
+
+    .visual {
+      align-self: center;
+      width: 100%;
+      height: 226px;
+      min-height: 180px;
+      filter: drop-shadow(0 14px 20px rgba(0,0,0,.18));
+    }
+
+    .scene__note {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(8,31,44,.40);
+      color: #dbeaf2;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .scene__note svg { flex: 0 0 auto; }
+
+    .quiz {
+      min-height: 0;
+      overflow-y: auto;
+      padding: clamp(22px, 3vw, 38px) clamp(22px, 4.3vw, 64px) 24px;
+      background: #fff;
+    }
+
+    .quiz__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .quiz__kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--navy-2);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .085em;
+      text-transform: uppercase;
+    }
+
+    .quiz__kicker::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 0 4px var(--amber-soft);
+    }
+
+    .counter {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .question {
+      margin: 0 0 6px;
+      color: var(--ink);
+      font-size: clamp(23px, 2.2vw, 32px);
+      line-height: 1.13;
+      letter-spacing: -.035em;
+    }
+
+    .instruction {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .option {
+      min-height: 72px;
+      border: 1.5px solid #cfdbe2;
+      border-radius: 13px;
+      padding: 11px 14px;
+      background: #fff;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      text-align: left;
+      line-height: 1.28;
+      font-size: 13px;
+      font-weight: 720;
+      cursor: pointer;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+
+    .option:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: var(--navy-2);
+      box-shadow: 0 6px 18px rgba(34,84,113,.10);
+    }
+
+    .option:focus-visible, .next:focus-visible, .restart:focus-visible {
+      outline: 3px solid rgba(36,93,128,.28);
+      outline-offset: 2px;
+    }
+
+    .option__letter {
+      flex: 0 0 auto;
+      width: 29px;
+      height: 29px;
+      border-radius: 9px;
+      background: #edf3f6;
+      color: var(--navy);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 900;
+      transition: .15s ease;
+    }
+
+    .option.is-wrong {
+      border-color: var(--red);
+      background: var(--red-soft);
+      color: #762b27;
+    }
+
+    .option.is-wrong .option__letter { background: var(--red); color: #fff; }
+
+    .option.is-correct {
+      border-color: var(--green);
+      background: var(--green-soft);
+      color: #155d3e;
+    }
+
+    .option.is-correct .option__letter { background: var(--green); color: #fff; }
+    .option:disabled { cursor: default; }
+    .option.is-muted { opacity: .52; }
+
+    .feedback {
+      display: none;
+      margin-top: 13px;
+      min-height: 61px;
+      padding: 11px 13px;
+      border-radius: 12px;
+      grid-template-columns: 26px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .feedback.is-visible { display: grid; animation: rise .22s ease-out; }
+    .feedback.is-error { background: var(--red-soft); color: #722d29; border: 1px solid #f0c6c3; }
+    .feedback.is-success { background: var(--green-soft); color: #155c3e; border: 1px solid #bfe2cf; }
+
+    .feedback__icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 900;
+    }
+
+    .is-error .feedback__icon { background: var(--red); }
+    .is-success .feedback__icon { background: var(--green); }
+    .feedback strong { display: block; font-size: 13px; margin-bottom: 1px; }
+
+    .next {
+      display: none;
+      border: 0;
+      border-radius: 10px;
+      background: var(--green);
+      color: #fff;
+      padding: 10px 13px;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 5px 14px rgba(37,132,91,.20);
+    }
+
+    .next.is-visible { display: block; }
+    .next:hover { background: #1d714d; }
+
+    .result {
+      display: none;
+      height: 100%;
+      align-content: center;
+      animation: rise .3s ease-out;
+    }
+
+    .result.is-visible { display: grid; }
+    .result__badge {
+      width: 54px;
+      height: 54px;
+      border-radius: 17px;
+      background: var(--green-soft);
+      color: var(--green);
+      display: grid;
+      place-items: center;
+      font-size: 29px;
+      font-weight: 950;
+      margin-bottom: 14px;
+    }
+
+    .result h2 {
+      margin: 0 0 7px;
+      font-size: clamp(25px, 2.6vw, 36px);
+      line-height: 1.1;
+      letter-spacing: -.035em;
+    }
+
+    .result__subtitle {
+      margin: 0 0 17px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chain {
+      list-style: none;
+      margin: 0 0 17px;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      counter-reset: chain;
+    }
+
+    .chain li {
+      counter-increment: chain;
+      position: relative;
+      min-height: 54px;
+      padding: 9px 10px 9px 39px;
+      border: 1px solid #d4e6dc;
+      border-radius: 11px;
+      background: #f5fbf7;
+      color: #275b44;
+      font-size: 11px;
+      line-height: 1.3;
+      font-weight: 720;
+      display: flex;
+      align-items: center;
+    }
+
+    .chain li::before {
+      content: counter(chain);
+      position: absolute;
+      left: 10px;
+      width: 21px;
+      height: 21px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .result__actions { display: flex; align-items: center; gap: 12px; }
+
+    .restart {
+      border: 0;
+      border-radius: 11px;
+      background: var(--navy);
+      color: #fff;
+      padding: 11px 16px;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .restart:hover { background: #0f3045; }
+    .score { color: var(--muted); font-size: 12px; }
+
+    .pulse { animation: pulse 1.6s ease-in-out infinite; transform-origin: center; }
+    .forklift { animation: idle 3s ease-in-out infinite; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .45; transform: scale(.94); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+
+    @keyframes idle {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(2px); }
+    }
+
+    @media (max-width: 900px) {
+      .trainer { min-height: 520px; }
+      .topbar { grid-template-columns: 1fr; gap: 11px; padding-block: 12px; }
+      .brand__eyebrow { display: none; }
+      .steps .step { font-size: 0; padding-top: 13px; }
+      .workspace { grid-template-columns: minmax(260px, .7fr) minmax(430px, 1.3fr); }
+      .scene { padding-inline: 22px; }
+      .visual { height: 205px; }
+      .option { min-height: 67px; }
+    }
+
+    @media (max-width: 690px) {
+      .trainer { height: min(600px, 100vh); min-height: 0; }
+      .topbar { min-height: 92px; }
+      .workspace { display: block; overflow-y: auto; }
+      .scene { min-height: 202px; padding: 14px 18px; grid-template-columns: 1fr 170px; grid-template-rows: auto 1fr; gap: 7px 10px; }
+      .scene__copy { align-self: center; }
+      .scene h2 { font-size: 17px; }
+      .visual { height: 142px; min-height: 0; grid-column: 2; grid-row: 1 / span 2; }
+      .scene__note { display: none; }
+      .quiz { padding: 20px 18px 28px; overflow: visible; min-height: 390px; }
+      .options { grid-template-columns: 1fr; }
+      .option { min-height: 58px; }
+      .feedback { grid-template-columns: 26px 1fr; }
+      .next { grid-column: 1 / -1; width: 100%; }
+    }
+
+    @media (max-width: 440px) {
+      .scene { grid-template-columns: 1fr 120px; }
+      .scene h2 { font-size: 15px; }
+      .scene__label { font-size: 9px; }
+      .question { font-size: 23px; }
+      .chain { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="trainer" aria-labelledby="pageTitle">
+    <header class="topbar">
+      <div class="brand">
+        <p class="brand__eyebrow">Интерактивный тренажёр</p>
+        <h1 id="pageTitle">Открываем решение последовательно</h1>
+      </div>
+      <ol class="steps" aria-label="Этапы решения">
+        <li class="step is-active" data-n="1">Объект</li>
+        <li class="step" data-n="2">Федеральная рамка</li>
+        <li class="step" data-n="3">Локальный документ</li>
+        <li class="step" data-n="4">Первое действие</li>
+      </ol>
+    </header>
+
+    <div class="workspace">
+      <section class="scene" aria-labelledby="sceneTitle">
+        <div class="scene__copy">
+          <span class="scene__label">Ситуация у погрузочного дока</span>
+          <h2 id="sceneTitle">Высокий заказ закрыл зеркало и пешеходный переход</h2>
+        </div>
+
+        <svg class="visual" viewBox="0 0 500 250" role="img" aria-label="Высокий груз у дока перекрывает обзор пешеходу и водителю погрузчика">
+          <defs>
+            <linearGradient id="floor" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#dfe9ee"/>
+              <stop offset="1" stop-color="#aabcc6"/>
+            </linearGradient>
+            <linearGradient id="box" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#e4ae44"/>
+              <stop offset="1" stop-color="#bd7814"/>
+            </linearGradient>
+          </defs>
+          <path d="M18 201 L316 121 L485 166 L197 244 Z" fill="url(#floor)" opacity=".96"/>
+          <path d="M43 193 L74 185 M88 181 L119 173 M133 169 L164 161 M178 157 L209 149" stroke="#fff" stroke-width="9" stroke-linecap="square" opacity=".92"/>
+          <path d="M45 211 L76 203 M91 199 L122 191 M137 187 L168 179 M183 175 L214 167" stroke="#fff" stroke-width="9" stroke-linecap="square" opacity=".92"/>
+
+          <g opacity=".85">
+            <path d="M25 87 H350" stroke="#76a1b8" stroke-width="4"/>
+            <path d="M37 86 V202 M334 86 V145" stroke="#89adbf" stroke-width="7"/>
+            <rect x="46" y="95" width="274" height="66" rx="3" fill="#315f78"/>
+            <path d="M48 132 H319" stroke="#47758d" stroke-width="3"/>
+          </g>
+
+          <g class="forklift" transform="translate(341 135)">
+            <circle cx="32" cy="66" r="15" fill="#14242d"/><circle cx="32" cy="66" r="6" fill="#b5c3cb"/>
+            <circle cx="98" cy="66" r="15" fill="#14242d"/><circle cx="98" cy="66" r="6" fill="#b5c3cb"/>
+            <path d="M13 58 L21 22 H78 L101 52 L112 58 V66 H8 Z" fill="#e2a51e"/>
+            <path d="M44 20 L54 -12 H84 L89 22" fill="none" stroke="#172934" stroke-width="6"/>
+            <path d="M58 -8 V18 H85" fill="#9fd1e6" opacity=".72"/>
+            <path d="M105 -22 V61 M105 52 H137" fill="none" stroke="#172934" stroke-width="7"/>
+            <path d="M137 52 h29" stroke="#172934" stroke-width="5"/>
+            <circle cx="65" cy="8" r="8" fill="#27485b"/>
+          </g>
+
+          <g transform="translate(216 77)">
+            <path d="M7 145 h112 l-7 -14 H14 Z" fill="#76541e"/>
+            <rect x="13" y="96" width="48" height="39" rx="2" fill="url(#box)"/>
+            <rect x="63" y="96" width="48" height="39" rx="2" fill="#cf8a20"/>
+            <rect x="18" y="54" width="43" height="40" rx="2" fill="#d99a2f"/>
+            <rect x="63" y="54" width="45" height="40" rx="2" fill="url(#box)"/>
+            <rect x="24" y="10" width="75" height="42" rx="2" fill="#d28b23"/>
+            <path d="M61 11 V52 M37 55 V94 M86 55 V94 M37 97 V135 M86 97 V135" stroke="#edbd61" stroke-width="3" opacity=".7"/>
+          </g>
+
+          <g transform="translate(173 113)">
+            <path d="M0 13 L34 -1" stroke="#d9e6ec" stroke-width="5"/>
+            <circle cx="43" cy="-5" r="17" fill="#d7e6ed" stroke="#84a9bc" stroke-width="4"/>
+            <path d="M35 -13 Q48 -4 38 8" fill="#9fb8c5"/>
+          </g>
+
+          <g transform="translate(90 122)">
+            <circle cx="22" cy="7" r="11" fill="#f1c9a9"/>
+            <path d="M11 22 Q22 14 34 22 L38 70 H8 Z" fill="#43a36f"/>
+            <path d="M14 69 L10 105 M33 69 L39 105" stroke="#dce7ed" stroke-width="8" stroke-linecap="round"/>
+            <path d="M11 31 L-2 56 M34 32 L47 52" stroke="#f1c9a9" stroke-width="7" stroke-linecap="round"/>
+            <path d="M11 27 H34" stroke="#ecb523" stroke-width="7"/>
+          </g>
+
+          <g class="pulse">
+            <path d="M187 80 C209 99 208 124 195 143" fill="none" stroke="#ef685e" stroke-width="4" stroke-dasharray="6 6"/>
+            <circle cx="190" cy="72" r="15" fill="#c94b43"/>
+            <path d="M190 64 V74" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="190" cy="79" r="2" fill="#fff"/>
+          </g>
+
+          <g transform="translate(347 87)">
+            <rect width="111" height="27" rx="13.5" fill="#fff"/>
+            <text x="55.5" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#b9413c">ОБЗОР ЗАКРЫТ</text>
+          </g>
+        </svg>
+
+        <div class="scene__note">
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 2.8 20h18.4L12 3Z" fill="#e8b236"/><path d="M12 8v6" stroke="#183e55" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="#183e55"/>
+          </svg>
+          <span>Сначала определите, какой риск здесь главный. Наличие груза само по себе ещё не задаёт объект регулирования.</span>
+        </div>
+      </section>
+
+      <section class="quiz" aria-live="polite">
+        <div id="quizView">
+          <div class="quiz__head">
+            <span class="quiz__kicker" id="kicker">Шаг 1 · Объект регулирования</span>
+            <span class="counter" id="counter">1 / 4</span>
+          </div>
+          <h2 class="question" id="question">Что регулируем в первую очередь?</h2>
+          <p class="instruction" id="instruction">Выберите главный объект ситуации — не ориентируйтесь только на то, что находится рядом.</p>
+          <div class="options" id="options" role="group" aria-labelledby="question"></div>
+          <div class="feedback" id="feedback" role="status">
+            <span class="feedback__icon" id="feedbackIcon" aria-hidden="true"></span>
+            <div><strong id="feedbackTitle"></strong><span id="feedbackText"></span></div>
+            <button class="next" id="nextButton" type="button">Дальше →</button>
+          </div>
+        </div>
+
+        <div class="result" id="resultView">
+          <div class="result__badge" aria-hidden="true">✓</div>
+          <h2>Решение собрано</h2>
+          <p class="result__subtitle">Вы прошли от объекта регулирования к безопасному первому действию.</p>
+          <ol class="chain">
+            <li>Движение людей и техники</li>
+            <li>Приказы № 814н и № 774н</li>
+            <li>Схема движения и локальный порядок</li>
+            <li>Не начинать пересечение и сообщить о закрытом обзоре</li>
+          </ol>
+          <div class="result__actions">
+            <button class="restart" id="restartButton" type="button">Пройти ещё раз</button>
+            <span class="score" id="score"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const stages = [
+        {
+          kicker: 'Шаг 1 · Объект регулирования',
+          question: 'Что регулируем в первую очередь?',
+          instruction: 'Выберите главный объект ситуации — не ориентируйтесь только на то, что находится рядом.',
+          options: [
+            { text: 'Движение людей и техники', correct: true },
+            { text: 'Размещение и хранение груза' },
+            { text: 'Выдачу и применение СИЗ' },
+            { text: 'Пожарную безопасность дока' }
+          ],
+          success: 'Главный риск — пересечение траекторий людей и техники при закрытом обзоре.',
+          error: 'Смотрите не на предмет, а на опасное взаимодействие: пешеход и погрузчик могут не увидеть друг друга.'
+        },
+        {
+          kicker: 'Шаг 2 · Федеральная рамка',
+          question: 'Какие федеральные требования применим?',
+          instruction: 'Выберите связку, которая соответствует движению людей и промышленного транспорта.',
+          options: [
+            { text: 'Приказы № 814н и № 774н', correct: true },
+            { text: 'Приказ № 753н — рядом находится груз', special: true },
+            { text: 'Только приказ № 782н' },
+            { text: 'Только технический регламент ТС' }
+          ],
+          success: 'Верно: федеральную рамку для ситуации задают приказы № 814н и № 774н.',
+          error: 'Нужна рамка, относящаяся к движению людей и техники в рабочей зоне.',
+          specialError: 'Наличие товара рядом ещё не определяет главный объект ситуации. Здесь решающим является конфликт движения пешехода и техники при закрытом обзоре.'
+        },
+        {
+          kicker: 'Шаг 3 · Локальный документ',
+          question: 'Какой локальный документ открыть?',
+          instruction: 'Найдите документ, который переводит федеральные требования в правила именно для этого дока.',
+          options: [
+            { text: 'Схема движения и локальный порядок', correct: true },
+            { text: 'Товарная накладная на заказ' },
+            { text: 'Паспорт складского стеллажа' },
+            { text: 'Инструкция по приёмке товара' }
+          ],
+          success: 'Именно схема и локальный порядок задают маршруты, приоритет и способ сообщения об опасности.',
+          error: 'Этот документ не определяет безопасные маршруты и действия при перекрытом обзоре.'
+        },
+        {
+          kicker: 'Шаг 4 · Первое действие',
+          question: 'Что сделать кладовщику сначала?',
+          instruction: 'Выберите безопасное действие до входа на закрытый переход.',
+          options: [
+            { text: 'Не начинать пересечение и сообщить о закрытом обзоре', correct: true },
+            { text: 'Быстро пройти, пока погрузчик ещё далеко' },
+            { text: 'Самостоятельно сдвинуть высокий заказ' },
+            { text: 'Подать знак водителю и сразу начать движение' }
+          ],
+          success: 'Безопасная остановка предшествует любым попыткам восстановить обзор или продолжить движение.',
+          error: 'При закрытом обзоре нельзя входить в зону пересечения или самостоятельно перемещать заказ.'
+        }
+      ];
+
+      const els = {
+        quizView: document.getElementById('quizView'),
+        resultView: document.getElementById('resultView'),
+        kicker: document.getElementById('kicker'),
+        counter: document.getElementById('counter'),
+        question: document.getElementById('question'),
+        instruction: document.getElementById('instruction'),
+        options: document.getElementById('options'),
+        feedback: document.getElementById('feedback'),
+        feedbackIcon: document.getElementById('feedbackIcon'),
+        feedbackTitle: document.getElementById('feedbackTitle'),
+        feedbackText: document.getElementById('feedbackText'),
+        next: document.getElementById('nextButton'),
+        restart: document.getElementById('restartButton'),
+        score: document.getElementById('score'),
+        steps: [...document.querySelectorAll('.step')]
+      };
+
+      let current = 0;
+      let mistakes = 0;
+      let locked = false;
+
+      function renderStage() {
+        const stage = stages[current];
+        locked = false;
+        els.kicker.textContent = stage.kicker;
+        els.counter.textContent = `${current + 1} / ${stages.length}`;
+        els.question.textContent = stage.question;
+        els.instruction.textContent = stage.instruction;
+        els.options.innerHTML = '';
+        resetFeedback();
+
+        stage.options.forEach((option, index) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'option';
+          button.innerHTML = `<span class="option__letter" aria-hidden="true">${String.fromCharCode(1040 + index)}</span><span>${option.text}</span>`;
+          button.addEventListener('click', () => choose(button, option));
+          els.options.appendChild(button);
+        });
+
+        updateProgress();
+      }
+
+      function choose(button, option) {
+        if (locked) return;
+
+        if (!option.correct) {
+          mistakes += 1;
+          button.classList.add('is-wrong');
+          button.setAttribute('aria-pressed', 'true');
+          showFeedback(false, option.special ? stages[current].specialError : stages[current].error);
+          window.setTimeout(() => {
+            button.classList.remove('is-wrong');
+            button.removeAttribute('aria-pressed');
+          }, 650);
+          return;
+        }
+
+        locked = true;
+        [...els.options.children].forEach((item) => {
+          item.disabled = true;
+          if (item !== button) item.classList.add('is-muted');
+        });
+        button.classList.remove('is-muted');
+        button.classList.add('is-correct');
+        showFeedback(true, stages[current].success);
+      }
+
+      function showFeedback(success, text) {
+        els.feedback.className = `feedback is-visible ${success ? 'is-success' : 'is-error'}`;
+        els.feedbackIcon.textContent = success ? '✓' : '!';
+        els.feedbackTitle.textContent = success ? 'Верно' : 'Попробуйте ещё раз';
+        els.feedbackText.textContent = text;
+        els.next.classList.toggle('is-visible', success);
+        els.next.textContent = current === stages.length - 1 ? 'Завершить →' : 'Дальше →';
+      }
+
+      function resetFeedback() {
+        els.feedback.className = 'feedback';
+        els.feedbackIcon.textContent = '';
+        els.feedbackTitle.textContent = '';
+        els.feedbackText.textContent = '';
+        els.next.classList.remove('is-visible');
+      }
+
+      function updateProgress(doneAll = false) {
+        els.steps.forEach((step, index) => {
+          step.classList.toggle('is-done', doneAll || index < current);
+          step.classList.toggle('is-active', !doneAll && index === current);
+        });
+      }
+
+      function nextStage() {
+        if (!locked) return;
+        if (current < stages.length - 1) {
+          current += 1;
+          renderStage();
+          els.question.focus?.({ preventScroll: true });
+        } else {
+          showResult();
+        }
+      }
+
+      function showResult() {
+        updateProgress(true);
+        els.quizView.style.display = 'none';
+        els.resultView.classList.add('is-visible');
+        els.score.textContent = mistakes === 0
+          ? 'Пройдено без ошибок'
+          : `Ошибок до верного решения: ${mistakes}`;
+      }
+
+      function restart() {
+        current = 0;
+        mistakes = 0;
+        locked = false;
+        els.quizView.style.display = '';
+        els.resultView.classList.remove('is-visible');
+        renderStage();
+      }
+
+      els.next.addEventListener('click', nextStage);
+      els.restart.addEventListener('click', restart);
+      renderStage();
+    })();
+  </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f"}' crossorigin="anonymous"></script>
+</body>
+</html>
