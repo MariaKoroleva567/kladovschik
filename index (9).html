@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тренажёр по СИЗ для кладовщика — 8 ситуаций (выпуск 4)</title>
+<style>
+  /* ============ БАЗА ============ */
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{
+    width:100%; height:100%;
+    overflow:hidden;                       /* требование: нигде нет скроллов */
+    background:linear-gradient(135deg,#0b1220 0%,#16233c 55%,#1b2b46 100%);
+    font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    color:#1e293b;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ============ ОКНО ТРЕНАЖЁРА (100vw, max-height 600px) ============ */
+  #app{
+    position:relative;
+    width:100vw;                           /* требование: относительная ширина 100vw */
+    height:600px;
+    max-height:600px;                      /* требование: макс. высота 600px */
+    margin:0 auto;
+    overflow:hidden;
+    background:#eef2f7;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+    display:flex; flex-direction:column;
+  }
+
+  /* Масштабируемая сцена */
+  #stage{
+    position:absolute;
+    top:0; left:0;
+    transform-origin:top left;
+    will-change:transform,width;
+  }
+  #canvas{
+    width:100%;
+    height:auto;
+    display:flex; flex-direction:column;
+    overflow:visible;
+    background:#eef2f7;
+  }
+
+  /* ============ ШАПКА ============ */
+  .topbar{
+    flex:0 0 auto;
+    height:58px;
+    background:linear-gradient(90deg,#101c30,#1c3155);
+    color:#fff;
+    display:flex; align-items:center; gap:18px;
+    padding:0 20px;
+    border-bottom:3px solid #0ea5e9;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .brand .logo{ font-size:26px; line-height:1; }
+  .brand h1{ font-size:17px; font-weight:700; letter-spacing:.2px; white-space:nowrap; }
+  .brand .sub{ font-size:11.5px; color:#9fb4d4; white-space:nowrap; }
+
+  .dots{ display:flex; gap:7px; margin-left:auto; align-items:center; }
+  .dot{
+    width:26px; height:26px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.28);
+    background:rgba(255,255,255,.06);
+    color:#c6d4ea; font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:all .18s ease; font-family:inherit;
+  }
+  .dot:hover{ border-color:#0ea5e9; color:#fff; }
+  .dot.done{ background:#16a34a; border-color:#16a34a; color:#fff; }
+  .dot.cur{ background:#0ea5e9; border-color:#38bdf8; color:#06121f; transform:scale(1.12); box-shadow:0 0 0 4px rgba(14,165,233,.25); }
+  .dot.locked{ cursor:default; opacity:.55; }
+  .dot.locked:hover{ border-color:rgba(255,255,255,.28); color:#c6d4ea; }
+
+  .stageTag{
+    flex:0 0 auto;
+    font-size:12px; font-weight:700; letter-spacing:.6px;
+    color:#7dd3fc; background:rgba(14,165,233,.14);
+    border:1px solid rgba(14,165,233,.5);
+    padding:5px 11px; border-radius:999px; white-space:nowrap;
+  }
+
+  /* ============ РАБОЧАЯ ОБЛАСТЬ ============ */
+  .work{
+    flex:1 1 auto;
+    min-height:0;
+    display:grid;
+    grid-template-columns:1fr 1.15fr;
+    gap:16px;
+    padding:16px 20px 10px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid #dbe3ee;
+    border-radius:16px;
+    box-shadow:0 6px 18px rgba(15,35,70,.08);
+    padding:16px 18px;
+    display:flex; flex-direction:column;
+    min-height:0; overflow:hidden;
+  }
+  .cardHead{ display:flex; align-items:center; gap:11px; margin-bottom:9px; flex:0 0 auto; }
+  .cardIcon{
+    width:44px; height:44px; border-radius:12px; flex:0 0 auto;
+    background:linear-gradient(135deg,#e0f2fe,#bae6fd);
+    border:1px solid #7dd3fc;
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+  }
+  .kicker{ font-size:11px; font-weight:800; letter-spacing:1.4px; color:#0369a1; text-transform:uppercase; }
+  .cardTitle{ font-size:16.5px; font-weight:800; color:#0f1f38; line-height:1.25; }
+
+  .bodyText{ font-size:14.5px; line-height:1.48; color:#334155; }
+
+  .situation{ flex:1 1 auto; overflow:hidden; }
+  .situation .bodyText{ margin-bottom:11px; }
+
+  .qbox{
+    flex:0 0 auto;
+    background:linear-gradient(90deg,#f0f9ff,#e0f2fe);
+    border:1px solid #bae6fd; border-left:5px solid #0ea5e9;
+    border-radius:12px; padding:11px 14px;
+    font-size:15px; font-weight:600; color:#0c4a6e; line-height:1.4;
+  }
+  .qbox .qmark{ color:#0284c7; margin-right:6px; }
+
+  .answers{ flex:0 0 auto; display:flex; gap:12px; margin-top:12px; }
+  .ansBtn{
+    flex:1; padding:13px 0; border-radius:12px; cursor:pointer;
+    font-size:17px; font-weight:800; font-family:inherit;
+    border:2px solid #26364f; background:#fff; color:#26364f;
+    transition:all .16s ease;
+  }
+  .ansBtn:hover{ background:#26364f; color:#fff; }
+  .ansBtn:disabled{ cursor:default; }
+  .ansBtn.pickYes{ background:#dc2626; border-color:#dc2626; color:#fff; }
+  .ansBtn.pickNo { background:#16a34a; border-color:#16a34a; color:#fff; }
+  .ansBtn.dim{ opacity:.45; }
+  .ansBtn.shake{ animation:shake .4s; }
+  @keyframes shake{
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)}
+    50%{transform:translateX(7px)} 75%{transform:translateX(-4px)}
+  }
+
+  .feedback{
+    flex:0 0 auto; margin-top:10px; font-size:13.5px; font-weight:700;
+    min-height:20px; line-height:1.35;
+  }
+  .feedback.bad{ color:#dc2626; }
+  .feedback.good{ color:#15803d; }
+
+  /* Правая карточка — разбор */
+  .analysis .cardIcon{ background:linear-gradient(135deg,#dcfce7,#bbf7d0); border-color:#86efac; }
+  .analysis .kicker{ color:#15803d; }
+  .verdict{
+    flex:0 0 auto; border-radius:11px; padding:9px 13px; margin-bottom:9px;
+    font-size:13.6px; font-weight:800; line-height:1.35; display:flex; gap:9px; align-items:center;
+  }
+  .verdict.ok{ background:#dcfce7; border:1px solid #86efac; color:#14532d; }
+  .verdict.no{ background:#fee2e2; border:1px solid #fca5a5; color:#7f1d1d; }
+
+  .analysisText{ flex:1 1 auto; overflow:hidden; }
+
+  /* Блоки разбора */
+  .rib{
+    display:flex; gap:9px; align-items:flex-start;
+    border-radius:10px; padding:8px 11px; margin-bottom:7px;
+    border:1px solid; font-size:12.8px; line-height:1.4;
+  }
+  .rib:last-child{ margin-bottom:0; }
+  .ribI{ font-size:15px; line-height:1.3; flex:0 0 auto; }
+  .ribL{ font-size:10px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; margin-bottom:2px; }
+  .ribT{ color:#334155; }
+  .ribT b{ color:#b91c1c; }
+  .ribT .ok{ color:#15803d; font-weight:700; }
+  .rib.norm    { background:#eff6ff; border-color:#bfdbfe; }
+  .rib.norm .ribL{ color:#1d4ed8; }
+  .rib.correct { background:#f0fdf4; border-color:#bbf7d0; }
+  .rib.correct .ribL{ color:#15803d; }
+  .rib.wrong   { background:#fff7ed; border-color:#fed7aa; }
+  .rib.wrong .ribL{ color:#c2410c; }
+  .rib.note    { background:#fffbeb; border-color:#fde68a; }
+  .rib.note .ribL{ color:#a16207; }
+
+  .placeholder{
+    flex:1 1 auto; border:2px dashed #cbd5e1; border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; color:#94a3b8; text-align:center; padding:10px;
+  }
+  .placeholder .phIcon{ font-size:34px; }
+  .placeholder .phText{ font-size:13.5px; font-weight:600; line-height:1.4; }
+
+  /* ============ НИЖНЯЯ ПАНЕЛЬ ============ */
+  .footer{
+    flex:0 0 auto;
+    height:58px;
+    background:#fff;
+    border-top:1px solid #dbe3ee;
+    display:flex; align-items:center; gap:14px;
+    padding:0 20px;
+  }
+  .navBtn{
+    font-family:inherit; cursor:pointer;
+    font-size:14px; font-weight:700;
+    border-radius:10px; padding:11px 20px;
+    border:2px solid #26364f; background:#fff; color:#26364f;
+    transition:all .15s ease; white-space:nowrap;
+  }
+  .navBtn:hover:not(:disabled){ background:#26364f; color:#fff; }
+  .navBtn.go{ background:#0ea5e9; border-color:#0ea5e9; color:#04202f; }
+  .navBtn.go:hover:not(:disabled){ background:#0284c7; border-color:#0284c7; color:#fff; }
+  .navBtn:disabled{ opacity:.4; cursor:not-allowed; }
+  .progressWrap{ flex:1 1 auto; display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .progressMeta{ display:flex; justify-content:space-between; font-size:11.5px; font-weight:700; color:#64748b; }
+  .progressTrack{ height:8px; border-radius:99px; background:#e2e8f0; overflow:hidden; }
+  .progressFill{ height:100%; border-radius:99px; background:linear-gradient(90deg,#0ea5e9,#16a34a); width:0%; transition:width .35s ease; }
+  .hint{ font-size:12.5px; color:#94a3b8; font-weight:600; white-space:nowrap; }
+
+  /* ============ ИТОГОВЫЙ ЭКРАН ============ */
+  .finalWork{ padding:16px 20px 10px; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:12px; }
+  .finalHero{
+    flex:0 0 auto; background:linear-gradient(90deg,#101c30,#123a5a);
+    border-radius:16px; padding:13px 18px; color:#fff;
+    display:flex; align-items:center; gap:16px; border-bottom:3px solid #0ea5e9;
+  }
+  .finalHero .ficon{ font-size:30px; }
+  .finalHero h2{ font-size:18px; font-weight:800; line-height:1.25; }
+  .finalHero p{ font-size:12.5px; color:#b9d8ea; margin-top:2px; line-height:1.35; }
+  .scoreBadge{
+    margin-left:auto; flex:0 0 auto; text-align:center;
+    background:rgba(14,165,233,.16); border:1px solid rgba(56,189,248,.55);
+    border-radius:14px; padding:8px 16px;
+  }
+  .scoreBadge .num{ font-size:24px; font-weight:900; color:#7dd3fc; line-height:1; }
+  .scoreBadge .lbl{ font-size:10.5px; color:#c3e4f5; margin-top:3px; font-weight:700; letter-spacing:.5px; }
+
+  .stepsRow{ flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .step{
+    background:#fff; border:1px solid #dbe3ee; border-radius:14px;
+    padding:11px 13px; box-shadow:0 4px 12px rgba(15,35,70,.07);
+    position:relative; overflow:hidden; min-height:0;
+  }
+  .step::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:5px;
+    background:linear-gradient(180deg,#0ea5e9,#16a34a);
+  }
+  .step .sTop{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .step .sNum{
+    width:24px; height:24px; border-radius:50%; background:#123a5a; color:#7dd3fc;
+    font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .step .sIcon{ font-size:20px; }
+  .step .sTitle{ font-size:14px; font-weight:800; color:#0f1f38; }
+  .step .sDesc{ font-size:12.3px; line-height:1.4; color:#475569; }
+
+  .finalText{
+    flex:1 1 auto; background:#fff; border:1px solid #dbe3ee; border-radius:14px;
+    padding:12px 16px; display:flex; flex-direction:column; justify-content:center; gap:8px;
+    box-shadow:0 4px 12px rgba(15,35,70,.07); overflow:hidden;
+  }
+  .finalText p{ font-size:13.8px; line-height:1.42; color:#334155; }
+  .finalText .rule{
+    background:#f0f9ff; border:1px solid #bae6fd; border-left:5px solid #0ea5e9;
+    border-radius:10px; padding:9px 13px; font-size:13.5px; font-weight:700; color:#0c4a6e; line-height:1.4;
+  }
+
+  /* ============ РЕСАЙЗЕР ============ */
+  #grip{
+    position:absolute; right:0; bottom:0;
+    width:30px; height:30px; z-index:50;
+    cursor:ns-resize;
+    display:flex; align-items:flex-end; justify-content:flex-end;
+    padding:3px; touch-action:none;
+  }
+  #grip::after{
+    content:""; width:14px; height:14px;
+    border-right:3px solid #26364f; border-bottom:3px solid #26364f;
+    border-radius:0 0 4px 0; opacity:.55;
+  }
+  #grip:hover::after{ border-color:#0ea5e9; opacity:1; }
+  #sizeTip{
+    position:absolute; right:40px; bottom:6px; z-index:51;
+    background:#101c30; color:#7dd3fc; font-size:11.5px; font-weight:700;
+    padding:4px 10px; border-radius:8px; display:none; pointer-events:none;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* Анимация смены экрана (только прозрачность — без сдвига) */
+  .screen{ animation:fadeIn .32s ease; }
+  @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+
+  /* ============ УЗКИЙ РЕЖИМ (одна колонка) ============ */
+  #canvas.narrow .topbar{
+    height:auto; min-height:50px; gap:6px 8px; padding:7px 12px;
+    flex-wrap:wrap; align-items:center;
+  }
+  #canvas.narrow .brand{ order:1; min-width:0; }
+  #canvas.narrow .brand .sub{ display:none; }
+  #canvas.narrow .brand h1{ font-size:13.5px; white-space:normal; line-height:1.2; }
+  #canvas.narrow .brand .logo{ font-size:22px; }
+  #canvas.narrow .stageTag{ order:2; margin-left:auto; font-size:10px; padding:4px 7px; }
+  #canvas.narrow .dot{ width:21px; height:21px; font-size:11px; }
+  #canvas.narrow .dots{ order:3; gap:5px; margin-left:0; flex:0 0 100%; }
+  #canvas.narrow .work{ grid-template-columns:1fr; gap:9px; padding:9px 12px 7px; }
+  #canvas.narrow .card{ padding:11px 13px; border-radius:13px; }
+  #canvas.narrow .cardIcon{ width:36px; height:36px; font-size:20px; border-radius:10px; }
+  #canvas.narrow .cardTitle{ font-size:14.5px; }
+  #canvas.narrow .bodyText{ font-size:13.5px; line-height:1.4; }
+  #canvas.narrow .qbox{ font-size:13.5px; padding:9px 11px; }
+  #canvas.narrow .ansBtn{ padding:11px 0; font-size:15px; }
+  #canvas.narrow .feedback{ font-size:12.5px; min-height:17px; }
+  #canvas.narrow .rib{ font-size:12.3px; padding:7px 9px; gap:7px; }
+  #canvas.narrow .verdict{ font-size:12.8px; padding:8px 10px; }
+  #canvas.narrow .footer{ height:50px; padding:0 12px; gap:10px; }
+  #canvas.narrow .navBtn{ padding:9px 14px; font-size:13px; }
+  #canvas.narrow .hint{ display:none; }
+  #canvas.narrow .finalWork{ gap:8px; padding:9px 12px 7px; }
+  #canvas.narrow .finalHero{ padding:10px 12px; gap:10px; border-radius:13px; }
+  #canvas.narrow .finalHero h2{ font-size:14.5px; }
+  #canvas.narrow .finalHero p{ font-size:11.5px; }
+  #canvas.narrow .finalHero .ficon{ font-size:24px; }
+  #canvas.narrow .scoreBadge{ padding:6px 11px; }
+  #canvas.narrow .scoreBadge .num{ font-size:19px; }
+  #canvas.narrow .stepsRow{ grid-template-columns:1fr 1fr; gap:8px; }
+  #canvas.narrow .step{ padding:9px 10px; border-radius:11px; }
+  #canvas.narrow .step .sDesc{ font-size:11.8px; }
+  #canvas.narrow .step .sTitle{ font-size:12.8px; }
+  #canvas.narrow .finalText{ padding:10px 12px; border-radius:11px; gap:6px; }
+  #canvas.narrow .finalText p{ font-size:12.8px; line-height:1.38; }
+  #canvas.narrow .finalText .rule{ font-size:12.5px; padding:8px 11px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="stage">
+    <div id="canvas"><!-- контент рендерит JS --></div>
+  </div>
+  <div id="sizeTip">600px</div>
+  <div id="grip" title="Потяните, чтобы изменить высоту тренажёра (двойной клик — сброс)"></div>
+</div>
+
+<script>
+/* ================================================================
+   ДАННЫЕ: 8 ситуаций — структура и текст полностью из файла.
+   Логика разбора: норма (что положено) → правильное действие →
+   типичная ошибка → заметка (ВАЖНО / ПРИМЕР / предел защиты).
+   ================================================================ */
+const STAGES = [
+  {
+    icon:"📦",
+    title:"Принимаем обычный непродовольственный товар",
+    situation:"Кладовщик работает с коробками и поддонами в сухой складской зоне. Упаковка создаёт загрязнение и трение, а при перемещении возможны механические воздействия на одежду, обувь и руки.",
+    question:"Если базовый комплект СИЗ выдан, можно ли в нём работать под поднятым грузом или у повреждённого стеллажа?",
+    norm:"В нормах по профессии находят специальную одежду и обувь от механических воздействий — истирания, перчатки с тем же защитным свойством и головной убор от общих производственных загрязнений. Это базовый набор, который работодатель переносит в свои нормы с необходимыми уточнениями.",
+    correct:"СИЗ используют по назначению — они защищают от предусмотренных воздействий. Параллельно остаются основные меры: <span class='ok'>устойчивая укладка, исправное место хранения и разделение потоков</span>.",
+    wrong:"Считать, что выданные одежда, обувь и перчатки разрешают находиться под поднятым грузом или работать у повреждённого стеллажа."
+  },
+  {
+    icon:"❄️",
+    title:"Заходим в холодильную зону",
+    situation:"Часть смены работник комплектует заказ в помещении с пониженной температурой. В базовой профессиональной строке есть костюм от истирания, но отдельное защитное свойство от холода в этой строке не указано.",
+    question:"Можно ли работать в холоде в обычном костюме от истирания или надеть свою зимнюю куртку вместо СИЗ?",
+    norm:"В нормах подразделения находят позиции для защиты от пониженной температуры и проверяют, кому, для каких условий и на какой период их выдают. Обычный костюм от механических воздействий нельзя автоматически считать теплозащитной одеждой.",
+    correct:"Если соответствующей позиции в нормах нет — кладовщик <span class='ok'>не подбирает зимнюю одежду сам и не использует личную куртку</span> как замену СИЗ, а сообщает руководителю о несоответствии фактической работы и обеспечения.",
+    wrong:"Решить, что костюм от истирания «и так тёплый», или заменить предусмотренные СИЗ от холода личной курткой.",
+    note:{tag:"Важно", text:"Даже подходящие СИЗ от холода не отменяют режим труда и отдыха, ограничение времени пребывания и другие меры, которые работодатель установил для холодильной зоны."}
+  },
+  {
+    icon:"🦺",
+    title:"Работаем рядом с движением техники",
+    situation:"На участке приёмки оценка профрисков привела к включению в нормы сигнальной одежды повышенной видимости. Кладовщик находит эту строку и получает средство подходящего размера. Но пешеходный переход перекрыт тарой, и самый короткий путь проходит по проезду погрузчиков.",
+    question:"Можно ли в сигнальной одежде повышенной видимости пройти по проезду погрузчиков, раз переход перекрыт?",
+    norm:"Сигнальная одежда — это СИЗ для своей задачи: она повышает заметность работника. Безопасность на маршруте обеспечивают другие меры — разделение потоков и свободный обозначенный переход.",
+    correct:"Решение состоит из двух частей: <span class='ok'>СИЗ используют по назначению, а операцию начинают только после восстановления безопасного маршрута</span> либо по другому установленному работодателем пути.",
+    wrong:"Считать, что заметность разрешает идти по транспортному маршруту: средство не создаёт безопасную дистанцию и не сокращает тормозной путь машины."
+  },
+  {
+    icon:"🧤",
+    title:"Перчатки похожи, но защищают от разного",
+    situation:"По нормам кладовщику положены перчатки от механических воздействий — истирания. На пункте выдачи предлагают внешне похожую пару: на упаковке указана защита от воды и растворов нетоксичных веществ, но нет нужного свойства от истирания.",
+    question:"Можно ли принять похожие перчатки как «почти такие же» — материал и размер совпадают?",
+    norm:"Сверяют точное защитное свойство, а не внешний вид: сходный материал и размер не подтверждают соответствие строке норм. В данном случае нужно свойство от истирания, а не от воды и растворов.",
+    correct:"Работник сверяет защитное свойство и <span class='ok'>сообщает о несоответствии</span>, а не принимает средство как «почти такое же».",
+    wrong:"Взять внешне похожую пару с другим защитным свойством и работать в ней как в перчатках от истирания.",
+    note:{tag:"Пример", text:"Одно средство может сочетать несколько нужных защитных свойств — но такое решение должно быть предусмотрено и подтверждено документами работодателя, а не выбрано работником по внешнему виду."}
+  },
+  {
+    icon:"🧪",
+    title:"Повреждена тара с бытовой химией",
+    situation:"На приёмке обнаружили мокрую коробку, резкий запах и повреждённую внутреннюю ёмкость. Состав вытекшего вещества неизвестен, а базовая строка профессии предусматривает перчатки только от истирания.",
+    question:"Можно ли самому взять любые химстойкие перчатки и начать уборку протёкшего вещества?",
+    norm:"Вид СИЗ, совместимость материала, защита глаз и органов дыхания зависят от конкретного вещества, концентрации и порядка ликвидации. Такую работу выполняет подготовленный работник в пределах установленной роли.",
+    correct:"Кладовщик <span class='ok'>исключает контакт, отходит, предупреждает людей</span> и сообщает сведения с маркировки и доступные признаки. Если локальный план поручает ему определённые действия — он выполняет их только с предусмотренными СИЗ и после соответствующего обучения.",
+    wrong:"Самостоятельно выбрать любые химстойкие перчатки и начать уборку, не зная состава вытекшего вещества."
+  },
+  {
+    icon:"🌫️",
+    title:"Пыль появилась после повреждения мешка",
+    situation:"При комплектовании разошёлся шов мешка с сухим товаром, и в воздух поднялась пыль. В базовом наборе кладовщика нет автоматически назначенных очков и средства защиты органов дыхания для любой пыли.",
+    question:"Можно ли использовать медицинскую маску, случайный респиратор или очки с соседнего участка, чтобы продолжить работу?",
+    norm:"Защита органов дыхания и глаз зависит от сведений о веществе и норм работодателя. Если работа с этим товаром предусмотрена, нормы и локальная технология должны содержать нужные защитные свойства и порядок применения; навыки использования респиратора отрабатывают в соответствующей программе обучения.",
+    correct:"Нужно <span class='ok'>прекратить обычную операцию, исключить распространение пыли</span> по установленному порядку и сообщить ответственному.",
+    wrong:"Надеть первую попавшуюся медицинскую маску, случайный респиратор или чужие очки и продолжить комплектование как ни в чём не бывало."
+  },
+  {
+    icon:"🥾",
+    title:"В карточке есть запись, а средство не подходит",
+    situation:"В личной карточке отмечена выдача специальной обуви, но фактически пара мала и натирает стопу. Работнику предлагают поработать до конца смены: документ уже подписан, а другая пара появится завтра.",
+    question:"Можно ли доработать смену в тесной обуви, раз запись в карточке уже есть, а замена будет завтра?",
+    norm:"Запись в карточке подтверждает факт выдачи, но не превращает неподходящий размер в работоспособное СИЗ. Средство должно реально защищать: подходить по размеру, быть исправным и в пределах установленного срока.",
+    correct:"Кладовщик сообщает о несоответствии и <span class='ok'>действует по порядку замены</span>, установленному работодателем. Так же поступают при повреждении, загрязнении, утрате защитных свойств или истечении срока.",
+    wrong:"Доработать смену в малой обуви, исправить запись самому, обменяться средством с коллегой или продлить срок по внешнему виду."
+  },
+  {
+    icon:"🗄️",
+    title:"Набор есть, но основная мера не работает",
+    situation:"Кладовщик получил одежду, обувь, перчатки и головной убор по нормам. У стеллажа лежит сорванная защита стойки, а на металле виден свежий след удара; руководитель предлагает надеть весь комплект и быстро поставить лёгкий короб в нижнюю ячейку.",
+    question:"Можно ли в полном комплекте СИЗ быстро поставить короб в нижнюю ячейку повреждённого стеллажа?",
+    norm:"Ни одно из выданных средств не подтверждает исправность стеллажа и не удерживает груз при потере устойчивости. СИЗ не заменяют технические и организационные меры.",
+    correct:"Кладовщик <span class='ok'>не начинает размещение у секции, выходит из возможной зоны падения</span> и сообщает адрес и доступные признаки повреждения.",
+    wrong:"Надеть весь комплект и быстро поставить лёгкий короб, рассчитывая, что средства индивидуальной защиты прикроют.",
+    note:{tag:"Предел защиты", text:"Эта ситуация проверяет предел защиты: даже правильно подобранные СИЗ не заменяют технические и организационные меры и не дают права выполнять опасное действие."}
+  }
+];
+
+const FINAL_STEPS = [
+  {icon:"👷", title:"Профессия и участок", desc:"Сначала находят свою профессию и конкретный участок: сухой склад, холодильная зона, участок рядом с техникой, работа с химвеществом или пылью."},
+  {icon:"🛡️", title:"Защитное свойство", desc:"Затем определяют нужное защитное свойство, количество и период выдачи: от истирания, холода, повышенная видимость, химстойкость, защита глаз и дыхания."},
+  {icon:"🔎", title:"Фактическая выдача", desc:"Сверяют выданное средство с нормой: точное свойство, а не внешний вид, подходящий размер, исправность и срок. Запись в карточке не заменяет работоспособное СИЗ."},
+  {icon:"📋", title:"Предел СИЗ", desc:"СИЗ применяют по назначению вместе с основными мерами. Они не заменяют технические и организационные меры и не делают опасное действие допустимым."}
+];
+
+/* ================================================================
+   СОСТОЯНИЕ
+   ================================================================ */
+const state = {
+  idx: 0,                 // 0..7 — ситуации, 8 — итог
+  answers: new Array(8).fill(null),
+  maxReached: 0
+};
+
+const app    = document.getElementById("app");
+const stage  = document.getElementById("stage");
+const canvas = document.getElementById("canvas");
+
+/* ================================================================
+   РЕНДЕР
+   ================================================================ */
+function dotsHTML(){
+  let h = "";
+  for(let i=0;i<8;i++){
+    const cls = ["dot",
+      i===state.idx ? "cur" : "",
+      state.answers[i] ? "done" : "",
+      i>state.maxReached ? "locked" : ""
+    ].join(" ").trim();
+    h += `<button class="${cls}" data-jump="${i}" ${i>state.maxReached?"disabled":""}>${i+1}</button>`;
+  }
+  return h;
+}
+
+function ribHTML(cls, icon, label, text){
+  return `<div class="rib ${cls}"><span class="ribI">${icon}</span><div><div class="ribL">${label}</div><div class="ribT">${text}</div></div></div>`;
+}
+
+function render(){
+  if(state.idx < 8){
+    const s = STAGES[state.idx];
+    const ans = state.answers[state.idx];
+    const answered = ans !== null;
+
+    const ribs =
+      ribHTML("norm","📋","Что требуют нормы", s.norm) +
+      ribHTML("correct","✅","Правильно", s.correct) +
+      ribHTML("wrong","⛔","Неправильно", s.wrong) +
+      (s.note ? ribHTML("note","📌", s.note.tag, s.note.text) : "");
+
+    canvas.innerHTML = `
+      <div class="screen" style="display:flex;flex-direction:column;height:100%;">
+        <div class="topbar">
+          <div class="brand">
+            <span class="logo">🦺</span>
+            <div>
+              <h1>Тренажёр: СИЗ кладовщика</h1>
+              <div class="sub">8 ситуаций: норма, защитное свойство и пределы защиты</div>
+            </div>
+          </div>
+          <div class="dots">${dotsHTML()}</div>
+          <div class="stageTag">СИТУАЦИЯ ${state.idx+1} / 8</div>
+        </div>
+
+        <div class="work">
+          <!-- ЛЕВАЯ КАРТОЧКА: ситуация и решение -->
+          <div class="card mustfit">
+            <div class="cardHead">
+              <div class="cardIcon">${s.icon}</div>
+              <div>
+                <div class="kicker">Ситуация</div>
+                <div class="cardTitle">${s.title}</div>
+              </div>
+            </div>
+            <div class="situation mustfit">
+              <div class="bodyText"><p>${s.situation}</p></div>
+              <div class="qbox"><span class="qmark">❓</span>${s.question}</div>
+            </div>
+            <div class="answers">
+              <button class="ansBtn ${answered?(ans==="yes"?"pickYes":"dim"):""}" data-ans="yes" ${answered?"disabled":""}>ДА, можно</button>
+              <button class="ansBtn ${answered?(ans==="no"?"pickNo":"dim"):""}" data-ans="no"  ${answered?"disabled":""}>НЕТ, нельзя</button>
+            </div>
+            <div class="feedback ${answered?(ans==="no"?"good":"bad"):""}" id="feedback">
+              ${answered
+                ? (ans==="no"
+                    ? "✅ Верно! СИЗ — не пропуск в опасную зону. Смотрите разбор."
+                    : "⛔ Ошибка. Правильный ответ — «НЕТ». Объяснение — в разборе.")
+                : ""}
+            </div>
+          </div>
+
+          <!-- ПРАВАЯ КАРТОЧКА: разбор -->
+          <div class="card analysis mustfit">
+            <div class="cardHead">
+              <div class="cardIcon">📖</div>
+              <div>
+                <div class="kicker">Разбор</div>
+                <div class="cardTitle">Норма · правильное действие</div>
+              </div>
+            </div>
+            ${answered ? `
+              <div class="verdict ${ans==="no"?"ok":"no"}">
+                ${ans==="no"
+                  ? "<span>✅</span><span>Правильное решение — <b>«НЕТ»</b>. СИЗ защищают от предусмотренных воздействий, но не закрывают разрыв между нормой и реальной опасностью.</span>"
+                  : "<span>⛔</span><span>Правильное решение — <b>«НЕТ»</b>. Никакой комплект не превращает опасное или неположенное действие в допустимое.</span>"}
+              </div>
+              <div class="analysisText mustfit">${ribs}</div>`
+            : `
+              <div class="placeholder">
+                <div class="phIcon">🔒</div>
+                <div class="phText">Сначала примите решение:<br>нажмите «ДА» или «НЕТ» —<br>здесь появится разбор: что требуют нормы,<br>правильное действие и типичная ошибка</div>
+              </div>`}
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="navBtn" id="backBtn" ${state.idx===0?"disabled":""}>← Назад</button>
+          <div class="progressWrap">
+            <div class="progressMeta">
+              <span>Прогресс тренажёра</span>
+              <span>${state.answers.filter(a=>a).length} из 8 ситуаций пройдено</span>
+            </div>
+            <div class="progressTrack"><div class="progressFill" style="width:${state.idx/8*100}%"></div></div>
+          </div>
+          <span class="hint" id="hint">${answered?"":"⟶ Сначала ответьте на вопрос"}</span>
+          <button class="navBtn go" id="nextBtn" ${answered?"":"disabled"}>
+            ${state.idx===7 ? "Итог: алгоритм подбора СИЗ →" : "Дальше →"}
+          </button>
+        </div>
+      </div>`;
+
+    canvas.querySelectorAll(".ansBtn").forEach(b=>{
+      b.addEventListener("click", ()=>answer(b.dataset.ans));
+    });
+    canvas.querySelectorAll(".dot[data-jump]").forEach(d=>{
+      d.addEventListener("click", ()=>{ state.idx = +d.dataset.jump; render(); });
+    });
+    document.getElementById("backBtn").addEventListener("click", ()=>{ state.idx--; render(); });
+    document.getElementById("nextBtn").addEventListener("click", ()=>{ state.idx++; render(); });
+
+  } else {
+    /* ---------- ИТОГОВЫЙ ЭКРАН ---------- */
+    const score = state.answers.filter(a=>a==="no").length;
+    canvas.innerHTML = `
+      <div class="screen" style="display:flex;flex-direction:column;height:100%;">
+        <div class="topbar">
+          <div class="brand">
+            <span class="logo">🦺</span>
+            <div>
+              <h1>Тренажёр: СИЗ кладовщика</h1>
+              <div class="sub">Итог: алгоритм подбора и применения</div>
+            </div>
+          </div>
+          <div class="dots">${dotsHTML()}</div>
+          <div class="stageTag">ИТОГ</div>
+        </div>
+
+        <div class="finalWork">
+          <div class="finalHero">
+            <span class="ficon">🧭</span>
+            <div>
+              <h2>Как проверить СИЗ: четыре шага</h2>
+              <p>Профессия и участок → защитное свойство, количество и период → сверка фактической выдачи → предел защиты</p>
+            </div>
+            <div class="scoreBadge">
+              <div class="num">${score}/8</div>
+              <div class="lbl">ВЕРНЫХ РЕШЕНИЙ</div>
+            </div>
+          </div>
+
+          <div class="stepsRow">
+            ${FINAL_STEPS.map((st,i)=>`
+              <div class="step mustfit">
+                <div class="sTop">
+                  <span class="sNum">${i+1}</span>
+                  <span class="sIcon">${st.icon}</span>
+                  <span class="sTitle">${st.title}</span>
+                </div>
+                <div class="sDesc">${st.desc}</div>
+              </div>`).join("")}
+          </div>
+
+          <div class="finalText mustfit">
+            <p>Во всех ситуациях порядок одинаков: сначала ищут свою профессию и участок, затем защитное свойство, количество или период, и только после этого сверяют фактическую выдачу.</p>
+            <div class="rule">⚠️ Если нужной строки нет, средство не того свойства, не по размеру, повреждено или просрочено — кладовщик не дописывает норму, не выбирает средство из каталога, не использует личное или чужое, а сообщает о несоответствии. Даже правильно подобранные СИЗ не дают права на опасное действие.</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="navBtn" id="backBtn">← К ситуации 8</button>
+          <div class="progressWrap">
+            <div class="progressMeta">
+              <span>Все 8 ситуаций пройдены</span>
+              <span>${score===8?"Отличный результат!" : score>=5?"Хороший результат — повторите разбор ошибок.":"Перечитайте разборы и пройдите снова."}</span>
+            </div>
+            <div class="progressTrack"><div class="progressFill" style="width:100%"></div></div>
+          </div>
+          <button class="navBtn go" id="restartBtn">↺ Пройти заново</button>
+        </div>
+      </div>`;
+
+    document.getElementById("backBtn").addEventListener("click", ()=>{ state.idx=7; render(); });
+    document.getElementById("restartBtn").addEventListener("click", ()=>{
+      state.idx=0; state.answers=new Array(8).fill(null); state.maxReached=0; render();
+    });
+    canvas.querySelectorAll(".dot[data-jump]").forEach(d=>{
+      d.addEventListener("click", ()=>{ state.idx = +d.dataset.jump; render(); });
+    });
+  }
+  scheduleFit();
+}
+
+function answer(choice){
+  state.answers[state.idx] = choice;
+  if(state.idx>state.maxReached) state.maxReached = state.idx;
+  if(choice==="yes"){
+    const yes = canvas.querySelector('[data-ans="yes"]');
+    const no  = canvas.querySelector('[data-ans="no"]');
+    const fb  = document.getElementById("feedback");
+    yes.classList.add("pickYes","shake"); no.classList.add("dim");
+    yes.disabled = true; no.disabled = true;
+    fb.className = "feedback bad";
+    fb.textContent = "⛔ Ошибка. Правильный ответ — «НЕТ». Открываем разбор…";
+    setTimeout(render, 800);
+  }else{
+    render();
+  }
+}
+
+/* ================================================================
+   АВТО-МАСШТАБИРОВАНИЕ (без скроллов и потери контента)
+   ================================================================ */
+const MAX_LOGIC_W  = 1500;
+const MIN_LOGIC_W  = 320;
+const NARROW_BREAK = 900;
+
+function fit(){
+  const cw = app.clientWidth;
+  const ch = app.clientHeight;
+
+  const scaleMax = Math.min(1.5, cw / MIN_LOGIC_W);
+
+  let best = null;
+  for(let s = Math.floor(scaleMax*1000)/1000; s >= 0.20; s -= 0.015){
+    const lw = Math.min(cw / s, MAX_LOGIC_W);
+
+    canvas.classList.toggle("narrow", lw < NARROW_BREAK);
+
+    stage.style.width = lw + "px";
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = "0px";
+    stage.style.top  = "0px";
+    void canvas.offsetHeight;
+
+    const contentH = canvas.offsetHeight;
+    if(contentH * s > ch + 1) continue;
+    if(lw * s > cw + 1) continue;
+
+    let clipped = false;
+    const els = canvas.querySelectorAll(".mustfit");
+    for(const el of els){
+      if(el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1){
+        clipped = true; break;
+      }
+    }
+    if(clipped) continue;
+
+    best = { s, lw, contentH };
+    break;
+  }
+
+  if(!best){ best = { s:0.20, lw:Math.min(cw/0.20, MAX_LOGIC_W), contentH:ch }; }
+
+  canvas.classList.toggle("narrow", best.lw < NARROW_BREAK);
+  stage.style.width = best.lw + "px";
+  stage.style.transform = `scale(${best.s})`;
+  void canvas.offsetHeight;
+  const contentH = canvas.offsetHeight;
+  const visualW = best.lw * best.s;
+  stage.style.left = ((cw - visualW)/2) + "px";
+  stage.style.top  = "0px";
+}
+
+function scheduleFit(){
+  requestAnimationFrame(()=>requestAnimationFrame(fit));
+}
+new ResizeObserver(()=>fit()).observe(app);
+if(document.fonts && document.fonts.ready){ document.fonts.ready.then(fit); }
+window.addEventListener("load", fit);
+
+/* ================================================================
+   ВСТРОЕННЫЙ РЕСАЙЗЕР (перетаскивание, высота 260..600px)
+   ================================================================ */
+const grip = document.getElementById("grip");
+const tip  = document.getElementById("sizeTip");
+
+const maxH = ()=> Math.min(600, window.innerHeight);
+const MIN_H = 260;
+
+function setH(h){
+  h = Math.round(Math.min(Math.max(h, MIN_H), maxH()));
+  app.style.height = h + "px";
+  tip.textContent = h + " px";
+  fit();
+  return h;
+}
+
+let dragging = false, startY = 0, startH = 0;
+grip.addEventListener("pointerdown", e=>{
+  dragging = true;
+  startY = e.clientY;
+  startH = app.clientHeight;
+  grip.setPointerCapture(e.pointerId);
+  tip.style.display = "block";
+});
+grip.addEventListener("pointermove", e=>{
+  if(!dragging) return;
+  setH(startH + (e.clientY - startY));
+});
+grip.addEventListener("pointerup", ()=>{
+  dragging = false;
+  tip.style.display = "none";
+  try{ localStorage.setItem("trainerH4", app.clientHeight); }catch(_){}
+});
+grip.addEventListener("dblclick", ()=>{ setH(600); try{localStorage.removeItem("trainerH4");}catch(_){} });
+
+window.addEventListener("resize", ()=>{ setH(app.clientHeight); });
+
+/* ================================================================
+   СТАРТ
+   ================================================================ */
+(function init(){
+  let saved = 0;
+  try{ saved = parseInt(localStorage.getItem("trainerH4")||"0",10) || 0; }catch(_){}
+  const h = saved ? Math.min(saved, maxH()) : maxH();
+  app.style.height = h + "px";
+  render();
+})();
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f"}' crossorigin="anonymous"></script>
+</body>
+</html>
