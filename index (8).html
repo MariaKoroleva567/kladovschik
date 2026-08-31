@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тренажёр по безопасности для кладовщика — 8 точек (выпуск 3)</title>
+<style>
+  /* ============ БАЗА ============ */
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{
+    width:100%; height:100%;
+    overflow:hidden;                       /* требование: нигде нет скроллов */
+    background:linear-gradient(135deg,#0b1220 0%,#16233c 55%,#1b2b46 100%);
+    font-family:"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    color:#1e293b;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ============ ОКНО ТРЕНАЖЁРА (100vw, max-height 600px) ============ */
+  #app{
+    position:relative;
+    width:100vw;                           /* требование: относительная ширина 100vw */
+    height:600px;
+    max-height:600px;                      /* требование: макс. высота 600px */
+    margin:0 auto;
+    overflow:hidden;
+    background:#eef2f7;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+    display:flex; flex-direction:column;
+  }
+
+  /* Масштабируемая сцена: логические размеры задаёт JS */
+  #stage{
+    position:absolute;
+    top:0; left:0;
+    transform-origin:top left;
+    will-change:transform,width;
+  }
+  #canvas{
+    width:100%;
+    height:auto;
+    display:flex; flex-direction:column;
+    overflow:visible;
+    background:#eef2f7;
+  }
+
+  /* ============ ШАПКА ============ */
+  .topbar{
+    flex:0 0 auto;
+    height:58px;
+    background:linear-gradient(90deg,#101c30,#1c3155);
+    color:#fff;
+    display:flex; align-items:center; gap:18px;
+    padding:0 20px;
+    border-bottom:3px solid #f59e0b;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .brand .logo{ font-size:26px; line-height:1; }
+  .brand h1{ font-size:17px; font-weight:700; letter-spacing:.2px; white-space:nowrap; }
+  .brand .sub{ font-size:11.5px; color:#9fb4d4; white-space:nowrap; }
+
+  .dots{ display:flex; gap:7px; margin-left:auto; align-items:center; }
+  .dot{
+    width:26px; height:26px; border-radius:50%;
+    border:2px solid rgba(255,255,255,.28);
+    background:rgba(255,255,255,.06);
+    color:#c6d4ea; font-size:12.5px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:all .18s ease; font-family:inherit;
+  }
+  .dot:hover{ border-color:#f59e0b; color:#fff; }
+  .dot.done{ background:#16a34a; border-color:#16a34a; color:#fff; }
+  .dot.cur{ background:#f59e0b; border-color:#fbbf24; color:#1a2436; transform:scale(1.12); box-shadow:0 0 0 4px rgba(245,158,11,.25); }
+  .dot.locked{ cursor:default; opacity:.55; }
+  .dot.locked:hover{ border-color:rgba(255,255,255,.28); color:#c6d4ea; }
+
+  .stageTag{
+    flex:0 0 auto;
+    font-size:12px; font-weight:700; letter-spacing:.6px;
+    color:#fbbf24; background:rgba(245,158,11,.14);
+    border:1px solid rgba(245,158,11,.45);
+    padding:5px 11px; border-radius:999px; white-space:nowrap;
+  }
+
+  /* ============ РАБОЧАЯ ОБЛАСТЬ ============ */
+  .work{
+    flex:1 1 auto;
+    min-height:0;
+    display:grid;
+    grid-template-columns:1fr 1.15fr;
+    gap:16px;
+    padding:16px 20px 10px;
+  }
+  .card{
+    background:#fff;
+    border:1px solid #dbe3ee;
+    border-radius:16px;
+    box-shadow:0 6px 18px rgba(15,35,70,.08);
+    padding:16px 18px;
+    display:flex; flex-direction:column;
+    min-height:0; overflow:hidden;
+  }
+  .cardHead{ display:flex; align-items:center; gap:11px; margin-bottom:9px; flex:0 0 auto; }
+  .cardIcon{
+    width:44px; height:44px; border-radius:12px; flex:0 0 auto;
+    background:linear-gradient(135deg,#fff3d6,#ffe1a8);
+    border:1px solid #f3d089;
+    display:flex; align-items:center; justify-content:center; font-size:24px;
+  }
+  .kicker{ font-size:11px; font-weight:800; letter-spacing:1.4px; color:#b45309; text-transform:uppercase; }
+  .cardTitle{ font-size:16.5px; font-weight:800; color:#0f1f38; line-height:1.25; }
+
+  .bodyText{ font-size:14.5px; line-height:1.48; color:#334155; }
+
+  .situation{ flex:1 1 auto; overflow:hidden; }
+  .situation .bodyText{ margin-bottom:11px; }
+
+  .qbox{
+    flex:0 0 auto;
+    background:linear-gradient(90deg,#fff8ec,#fef3df);
+    border:1px solid #f2d9a7; border-left:5px solid #f59e0b;
+    border-radius:12px; padding:11px 14px;
+    font-size:15px; font-weight:600; color:#7c3f06; line-height:1.4;
+  }
+  .qbox .qmark{ color:#d97706; margin-right:6px; }
+
+  .answers{ flex:0 0 auto; display:flex; gap:12px; margin-top:12px; }
+  .ansBtn{
+    flex:1; padding:13px 0; border-radius:12px; cursor:pointer;
+    font-size:17px; font-weight:800; font-family:inherit;
+    border:2px solid #26364f; background:#fff; color:#26364f;
+    transition:all .16s ease;
+  }
+  .ansBtn:hover{ background:#26364f; color:#fff; }
+  .ansBtn:disabled{ cursor:default; }
+  .ansBtn.pickYes{ background:#dc2626; border-color:#dc2626; color:#fff; }
+  .ansBtn.pickNo { background:#16a34a; border-color:#16a34a; color:#fff; }
+  .ansBtn.dim{ opacity:.45; }
+  .ansBtn.shake{ animation:shake .4s; }
+  @keyframes shake{
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)}
+    50%{transform:translateX(7px)} 75%{transform:translateX(-4px)}
+  }
+
+  .feedback{
+    flex:0 0 auto; margin-top:10px; font-size:13.5px; font-weight:700;
+    min-height:20px; line-height:1.35;
+  }
+  .feedback.bad{ color:#dc2626; }
+  .feedback.good{ color:#15803d; }
+
+  /* Правая карточка — разбор */
+  .analysis .cardIcon{ background:linear-gradient(135deg,#dcfce7,#bbf7d0); border-color:#86efac; }
+  .analysis .kicker{ color:#15803d; }
+  .verdict{
+    flex:0 0 auto; border-radius:11px; padding:9px 13px; margin-bottom:9px;
+    font-size:13.6px; font-weight:800; line-height:1.35; display:flex; gap:9px; align-items:center;
+  }
+  .verdict.ok{ background:#dcfce7; border:1px solid #86efac; color:#14532d; }
+  .verdict.no{ background:#fee2e2; border:1px solid #fca5a5; color:#7f1d1d; }
+
+  .analysisText{ flex:1 1 auto; overflow:hidden; }
+
+  /* Блоки разбора: событие / мера / правильное / неправильное / заметка */
+  .rib{
+    display:flex; gap:9px; align-items:flex-start;
+    border-radius:10px; padding:8px 11px; margin-bottom:7px;
+    border:1px solid; font-size:12.8px; line-height:1.4;
+  }
+  .rib:last-child{ margin-bottom:0; }
+  .ribI{ font-size:15px; line-height:1.3; flex:0 0 auto; }
+  .ribL{ font-size:10px; font-weight:800; letter-spacing:.7px; text-transform:uppercase; margin-bottom:2px; }
+  .ribT{ color:#334155; }
+  .ribT b{ color:#b91c1c; }
+  .ribT .ok{ color:#15803d; font-weight:700; }
+  .rib.danger { background:#fef2f2; border-color:#fecaca; }
+  .rib.danger .ribL{ color:#b91c1c; }
+  .rib.measure{ background:#eff6ff; border-color:#bfdbfe; }
+  .rib.measure .ribL{ color:#1d4ed8; }
+  .rib.correct{ background:#f0fdf4; border-color:#bbf7d0; }
+  .rib.correct .ribL{ color:#15803d; }
+  .rib.wrong  { background:#fff7ed; border-color:#fed7aa; }
+  .rib.wrong .ribL{ color:#c2410c; }
+  .rib.note   { background:#fffbeb; border-color:#fde68a; }
+  .rib.note .ribL{ color:#a16207; }
+
+  .placeholder{
+    flex:1 1 auto; border:2px dashed #cbd5e1; border-radius:12px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:8px; color:#94a3b8; text-align:center; padding:10px;
+  }
+  .placeholder .phIcon{ font-size:34px; }
+  .placeholder .phText{ font-size:13.5px; font-weight:600; line-height:1.4; }
+
+  /* ============ НИЖНЯЯ ПАНЕЛЬ ============ */
+  .footer{
+    flex:0 0 auto;
+    height:58px;
+    background:#fff;
+    border-top:1px solid #dbe3ee;
+    display:flex; align-items:center; gap:14px;
+    padding:0 20px;
+  }
+  .navBtn{
+    font-family:inherit; cursor:pointer;
+    font-size:14px; font-weight:700;
+    border-radius:10px; padding:11px 20px;
+    border:2px solid #26364f; background:#fff; color:#26364f;
+    transition:all .15s ease; white-space:nowrap;
+  }
+  .navBtn:hover:not(:disabled){ background:#26364f; color:#fff; }
+  .navBtn.go{ background:#f59e0b; border-color:#f59e0b; color:#1a2436; }
+  .navBtn.go:hover:not(:disabled){ background:#d97706; border-color:#d97706; color:#fff; }
+  .navBtn:disabled{ opacity:.4; cursor:not-allowed; }
+  .progressWrap{ flex:1 1 auto; display:flex; flex-direction:column; gap:5px; min-width:0; }
+  .progressMeta{ display:flex; justify-content:space-between; font-size:11.5px; font-weight:700; color:#64748b; }
+  .progressTrack{ height:8px; border-radius:99px; background:#e2e8f0; overflow:hidden; }
+  .progressFill{ height:100%; border-radius:99px; background:linear-gradient(90deg,#f59e0b,#16a34a); width:0%; transition:width .35s ease; }
+  .hint{ font-size:12.5px; color:#94a3b8; font-weight:600; white-space:nowrap; }
+
+  /* ============ ИТОГОВЫЙ ЭКРАН ============ */
+  .finalWork{ padding:16px 20px 10px; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:12px; }
+  .finalHero{
+    flex:0 0 auto; background:linear-gradient(90deg,#101c30,#1c3155);
+    border-radius:16px; padding:13px 18px; color:#fff;
+    display:flex; align-items:center; gap:16px; border-bottom:3px solid #f59e0b;
+  }
+  .finalHero .ficon{ font-size:30px; }
+  .finalHero h2{ font-size:18px; font-weight:800; line-height:1.25; }
+  .finalHero p{ font-size:12.5px; color:#b9c8e0; margin-top:2px; line-height:1.35; }
+  .scoreBadge{
+    margin-left:auto; flex:0 0 auto; text-align:center;
+    background:rgba(245,158,11,.16); border:1px solid rgba(245,158,11,.5);
+    border-radius:14px; padding:8px 16px;
+  }
+  .scoreBadge .num{ font-size:24px; font-weight:900; color:#fbbf24; line-height:1; }
+  .scoreBadge .lbl{ font-size:10.5px; color:#c6d4ea; margin-top:3px; font-weight:700; letter-spacing:.5px; }
+
+  .stepsRow{ flex:0 0 auto; display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .step{
+    background:#fff; border:1px solid #dbe3ee; border-radius:14px;
+    padding:11px 13px; box-shadow:0 4px 12px rgba(15,35,70,.07);
+    position:relative; overflow:hidden; min-height:0;
+  }
+  .step::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:5px;
+    background:linear-gradient(180deg,#f59e0b,#16a34a);
+  }
+  .step .sTop{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .step .sNum{
+    width:24px; height:24px; border-radius:50%; background:#1c3155; color:#fbbf24;
+    font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .step .sIcon{ font-size:20px; }
+  .step .sTitle{ font-size:14px; font-weight:800; color:#0f1f38; }
+  .step .sDesc{ font-size:12.3px; line-height:1.4; color:#475569; }
+
+  .finalText{
+    flex:1 1 auto; background:#fff; border:1px solid #dbe3ee; border-radius:14px;
+    padding:12px 16px; display:flex; flex-direction:column; justify-content:center; gap:8px;
+    box-shadow:0 4px 12px rgba(15,35,70,.07); overflow:hidden;
+  }
+  .finalText p{ font-size:13.8px; line-height:1.42; color:#334155; }
+  .finalText .rule{
+    background:#fef3df; border:1px solid #f2d9a7; border-left:5px solid #f59e0b;
+    border-radius:10px; padding:9px 13px; font-size:13.5px; font-weight:700; color:#7c3f06; line-height:1.4;
+  }
+
+  /* ============ РЕСАЙЗЕР ============ */
+  #grip{
+    position:absolute; right:0; bottom:0;
+    width:30px; height:30px; z-index:50;
+    cursor:ns-resize;
+    display:flex; align-items:flex-end; justify-content:flex-end;
+    padding:3px; touch-action:none;
+  }
+  #grip::after{
+    content:""; width:14px; height:14px;
+    border-right:3px solid #26364f; border-bottom:3px solid #26364f;
+    border-radius:0 0 4px 0; opacity:.55;
+  }
+  #grip:hover::after{ border-color:#f59e0b; opacity:1; }
+  #sizeTip{
+    position:absolute; right:40px; bottom:6px; z-index:51;
+    background:#101c30; color:#fbbf24; font-size:11.5px; font-weight:700;
+    padding:4px 10px; border-radius:8px; display:none; pointer-events:none;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* Анимация смены экрана (только прозрачность — без сдвига) */
+  .screen{ animation:fadeIn .32s ease; }
+  @keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+
+  /* ============ УЗКИЙ РЕЖИМ (одна колонка) ============ */
+  #canvas.narrow .topbar{
+    height:auto; min-height:50px; gap:6px 8px; padding:7px 12px;
+    flex-wrap:wrap; align-items:center;
+  }
+  #canvas.narrow .brand{ order:1; min-width:0; }
+  #canvas.narrow .brand .sub{ display:none; }
+  #canvas.narrow .brand h1{ font-size:13.5px; white-space:normal; line-height:1.2; }
+  #canvas.narrow .brand .logo{ font-size:22px; }
+  #canvas.narrow .stageTag{ order:2; margin-left:auto; font-size:10px; padding:4px 7px; }
+  #canvas.narrow .dot{ width:21px; height:21px; font-size:11px; }
+  #canvas.narrow .dots{ order:3; gap:5px; margin-left:0; flex:0 0 100%; }
+  #canvas.narrow .work{ grid-template-columns:1fr; gap:9px; padding:9px 12px 7px; }
+  #canvas.narrow .card{ padding:11px 13px; border-radius:13px; }
+  #canvas.narrow .cardIcon{ width:36px; height:36px; font-size:20px; border-radius:10px; }
+  #canvas.narrow .cardTitle{ font-size:14.5px; }
+  #canvas.narrow .bodyText{ font-size:13.5px; line-height:1.4; }
+  #canvas.narrow .qbox{ font-size:13.5px; padding:9px 11px; }
+  #canvas.narrow .ansBtn{ padding:11px 0; font-size:15px; }
+  #canvas.narrow .feedback{ font-size:12.5px; min-height:17px; }
+  #canvas.narrow .rib{ font-size:12.3px; padding:7px 9px; gap:7px; }
+  #canvas.narrow .verdict{ font-size:12.8px; padding:8px 10px; }
+  #canvas.narrow .footer{ height:50px; padding:0 12px; gap:10px; }
+  #canvas.narrow .navBtn{ padding:9px 14px; font-size:13px; }
+  #canvas.narrow .hint{ display:none; }
+  #canvas.narrow .finalWork{ gap:8px; padding:9px 12px 7px; }
+  #canvas.narrow .finalHero{ padding:10px 12px; gap:10px; border-radius:13px; }
+  #canvas.narrow .finalHero h2{ font-size:14.5px; }
+  #canvas.narrow .finalHero p{ font-size:11.5px; }
+  #canvas.narrow .finalHero .ficon{ font-size:24px; }
+  #canvas.narrow .scoreBadge{ padding:6px 11px; }
+  #canvas.narrow .scoreBadge .num{ font-size:19px; }
+  #canvas.narrow .stepsRow{ grid-template-columns:1fr 1fr; gap:8px; }
+  #canvas.narrow .step{ padding:9px 10px; border-radius:11px; }
+  #canvas.narrow .step .sDesc{ font-size:11.8px; }
+  #canvas.narrow .step .sTitle{ font-size:12.8px; }
+  #canvas.narrow .finalText{ padding:10px 12px; border-radius:11px; gap:6px; }
+  #canvas.narrow .finalText p{ font-size:12.8px; line-height:1.38; }
+  #canvas.narrow .finalText .rule{ font-size:12.5px; padding:8px 11px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="stage">
+    <div id="canvas"><!-- контент рендерит JS --></div>
+  </div>
+  <div id="sizeTip">600px</div>
+  <div id="grip" title="Потяните, чтобы изменить высоту тренажёра (двойной клик — сброс)"></div>
+</div>
+
+<script>
+/* ================================================================
+   ДАННЫЕ: 8 точек — структура и текст полностью из файла
+   (ситуация → опасное событие → предусмотренная мера →
+    правильное / неправильное решение → заметка)
+   ================================================================ */
+const STAGES = [
+  {
+    icon:"🚧",
+    title:"Пешеходный маршрут перекрыт тарой",
+    situation:"Утром работник идёт к зоне приёмки и видит, что обозначенный переход занят пустыми поддонами. Другие сотрудники обходят препятствие по проезду погрузчиков, потому что до свободного перехода нужно идти дальше.",
+    question:"Можно ли надеть сигнальный жилет и пройти по проезду вдоль стены — раз так уже делают другие?",
+    danger:"Наезд или столкновение на транспортном маршруте.",
+    measure:"Разделение потоков и свободный обозначенный переход. Сейчас мера не работает, даже если линии разметки остаются видны.",
+    correct:"<span class='ok'>Не выходить в проезд</span>, сообщить о перекрытом пути и использовать только другой установленный безопасный маршрут. Переместить поддоны можно лишь тогда, когда это входит в порученную операцию, известен безопасный способ и перемещение не заставляет работника самого находиться в транспортном потоке.",
+    wrong:"Надеть сигнальный жилет и пройти рядом со стеной проезда. Жилет повышает заметность, но не создаёт пешеходный путь и не исключает слепую зону машины."
+  },
+  {
+    icon:"🛡️",
+    title:"Защита стойки лежит на полу",
+    situation:"У крайней стойки стеллажа защитный элемент сорван с крепления. На стойке заметны свежая царапина и небольшой изгиб, однако груз в верхних ячейках внешне не изменил положения.",
+    question:"Можно ли вернуть отбойник на место и поставить новый поддон «только в соседней ячейке»?",
+    danger:"Потеря устойчивости секции и падение груза.",
+    measure:"От удара должна защищать предусмотренная конструкция, а после обнаруженного воздействия нужен установленный порядок осмотра и допуска секции к работе.",
+    correct:"Кладовщик <b>не возвращает защиту на место, не раскачивает стойку и не размещает новый поддон</b> «только в соседней ячейке». Он прекращает свою операцию у секции, выходит из возможной зоны падения, предупреждает людей и сообщает номер ряда, ячейку и видимые признаки.",
+    wrong:"Самому поставить отбойник обратно и продолжить работу: внешне груз стоит ровно.",
+    note:{tag:"Внимание", text:"Установить отбойник обратно — не значит устранить последствия удара. Решение об исправности конструкции принимает назначенный компетентный работник по порядку работодателя, а не кладовщик по внешнему виду."}
+  },
+  {
+    icon:"🛒",
+    title:"Тележка предусмотрена, но колесо заклинивает",
+    situation:"Для коробки массой 28 кг технология предусматривает ручную тележку. При осмотре без груза кладовщик замечает, что одно колесо идёт рывками, а ручка имеет заметный люфт.",
+    question:"Можно ли нагрузить тележку, а дефект компенсировать усилием — везти вдвоём или короткими рывками?",
+    danger:"Потеря управления, падение груза, защемление или перегрузка работника.",
+    measure:"Мера механизации есть формально, но её фактическое состояние не позволяет рассчитывать на безопасное перемещение.",
+    correct:"<span class='ok'>Не загружать неисправную тележку</span>, обозначить или вывести её из использования установленным способом и сообщить. Если выдана другая исправная тележка подходящей грузоподъёмности и маршрут остаётся безопасным, операцию выполняют по технологии. Самостоятельно менять способ на ручную переноску можно только тогда, когда это прямо допускают условия, масса и порядок работодателя.",
+    wrong:"Компенсировать дефект большим усилием, просить коллегу толкать сбоку или переносить груз несколькими короткими рывками."
+  },
+  {
+    icon:"🪞",
+    title:"Зеркало есть, но обзор закрыт заказом",
+    situation:"На пересечении прохода и проезда установлено обзорное зеркало. Перед ним временно поставили высокий собранный заказ, поэтому в зеркале видно только упаковочную плёнку, а приближение погрузчика определить невозможно.",
+    question:"Можно ли выйти к пересечению «на слух», ориентируясь на звуковой сигнал погрузчика?",
+    danger:"Столкновение в слепой зоне. Зеркало было частью защиты обзора, но сейчас превратилось в формальный объект и не выполняет свою функцию.",
+    measure:"Видимость пересечения и контроль приближения техники. Звуковой сигнал лишь предупреждает о присутствии машины.",
+    correct:"<span class='ok'>Остановиться до границы пересечения</span> и не выходить в проезд «на слух». Сообщить, что обзор закрыт, и применять только предусмотренный временный порядок, если работодатель его установил: например, другой маршрут или организованное регулирование движения.",
+    wrong:"Ориентироваться на звук. Сигнал не даёт точной информации о расстоянии, скорости и направлении: он не заменяет видимость, разделение потоков и установленный приоритет."
+  },
+  {
+    icon:"⚖️",
+    title:"Табличку нагрузки невозможно прочитать",
+    situation:"В задании указана ячейка для размещения поддона, но табличка допустимой нагрузки загрязнена и часть значения стёрлась. На соседнем стеллаже находится похожая табличка, поэтому работнику предлагают взять цифру оттуда.",
+    question:"Можно ли взять значение нагрузки с похожей таблички соседнего стеллажа?",
+    danger:"Перегрузка элемента и падение груза.",
+    measure:"Мера ограничения нагрузки работает только тогда, когда значение относится к конкретной конструкции, доступно работнику и совпадает с утверждённой схемой размещения.",
+    correct:"<span class='ok'>Не угадывать значение и не переносить данные</span> с внешне похожего стеллажа. Не начинать размещение, сообщить адрес и отсутствие читаемой информации, а груз оставить в предусмотренном безопасном месте до решения ответственного.",
+    wrong:"Решить, что масса поддона невелика, и взять цифру с соседней таблички.",
+    note:{tag:"Пример", text:"Масса поддона значительно меньше цифры на соседней табличке, но это не доказывает допустимость ячейки. Различаться могут тип балки, длина пролёта, схема установки и уже имеющаяся нагрузка — внешнее сходство не заменяет установленное значение."}
+  },
+  {
+    icon:"🧹",
+    title:"Проход сухой, но на полу осталась плёнка",
+    situation:"В зоне комплектования нет воды и видимых повреждений пола, однако поперёк прохода лежит прозрачная упаковочная плёнка. Работник видит её, но решает закончить отбор, потому что может аккуратно переступить.",
+    question:"Можно ли аккуратно переступить через плёнку, закончить отбор, а убрать её потом?",
+    danger:"Падение человека или потеря управления тележкой.",
+    measure:"Свободный маршрут и своевременное удаление отходов упаковки. Личная внимательность не заменяет порядок содержания прохода.",
+    correct:"Если убрать плёнку входит в обычную работу и это можно сделать <span class='ok'>без выхода в опасную зону</span> — поместить её в предусмотренное место. Если для уборки нужно войти в проезд техники, остановить чужое оборудование или работать с неизвестным загрязнением — ограничить движение по участку и сообщить.",
+    wrong:"Прижать плёнку коробкой до конца смены. Коробка сама становится препятствием, скрывает причину и может заставить людей выйти на встречный маршрут."
+  },
+  {
+    icon:"🚷",
+    title:"Ограждение открыто ради короткого пути",
+    situation:"Вдоль транспортного проезда установлено ограждение, но одну секцию отодвинули, чтобы быстрее передавать коробки между участками. Получился удобный проход прямо в рабочую зону погрузчика.",
+    question:"Можно ли пользоваться проёмом, раз через него уже ходят, и подавать водителю жест рукой?",
+    danger:"Выход человека перед движущейся техникой.",
+    measure:"Физическое ограждение должно не только присутствовать, но и сохранять непрерывную границу в местах, где переход не предусмотрен.",
+    correct:"<span class='ok'>Не использовать проём</span> и не считать его разрешённым только потому, что через него уже ходят другие. Сообщить о разрыве защиты и идти по установленному переходу; самостоятельно перемещать секцию ограждения — только при прямом поручении и безопасном порядке такой работы.",
+    wrong:"Встать у проёма и подавать водителю жест рукой. Самодельное регулирование не превращает неустановленный проход в безопасный и создаёт разные ожидания у участников движения."
+  },
+  {
+    icon:"⛑️",
+    title:"СИЗ предлагают вместо основной меры",
+    situation:"Погрузчик удерживает поддон над полом, а кладовщику нужно прочитать этикетку на нижнем коробе. Руководитель смены указывает на каску, защитную обувь и сигнальный жилет и предлагает быстро подойти, пока водитель не начал движение.",
+    question:"Можно ли в каске, защитной обуви и жилете быстро подойти под поднятый груз?",
+    danger:"Падение или смещение поднятого груза и попадание человека в рабочую зону техники.",
+    measure:"Ни заметность, ни защита головы и стоп не исключают энергию тяжёлого поддона и не дают безопасного пространства для выхода.",
+    correct:"<span class='ok'>Не входить под поднятый груз</span> и дождаться установки поддона в предусмотренном месте и прекращения движения. СИЗ применяют по назначению вместе с основными мерами, но они не превращают опасное или запрещённое действие в допустимое.",
+    wrong:"Считать, что каска, жилет и обувь делают короткий выход под груз безопасным.",
+    note:{tag:"Принцип", text:"Тот же принцип работает в других ситуациях: перчатки не разрешают удерживать падающий короб, а защитная обувь не заменяет устойчивую укладку и не даёт права вынимать нижнее место из штабеля."}
+  }
+];
+
+const FINAL_STEPS = [
+  {icon:"⚠️", title:"Событие", desc:"Какое опасное событие возможно: наезд или столкновение, падение груза, потеря управления тележкой, падение человека?"},
+  {icon:"🛡️", title:"Защита", desc:"Какая предусмотренная мера должна работать: разделение потоков, конструкция стеллажа, механизация, обзор, табличка, ограждение."},
+  {icon:"🔎", title:"Состояние", desc:"Защита фактически работает или стала формальной: путь перекрыт, элемент сорван, техника неисправна, обзор закрыт, данные стёрты, граница разорвана?"},
+  {icon:"👷", title:"Действие в роли", desc:"Что делает кладовщик в пределах полномочий: останавливается, не входит в опасную зону, предупреждает людей, сообщает ответственному и применяет установленный порядок."}
+];
+
+/* ================================================================
+   СОСТОЯНИЕ
+   ================================================================ */
+const state = {
+  idx: 0,                 // 0..7 — точки, 8 — итог
+  answers: new Array(8).fill(null),
+  maxReached: 0
+};
+
+const app    = document.getElementById("app");
+const stage  = document.getElementById("stage");
+const canvas = document.getElementById("canvas");
+
+/* ================================================================
+   РЕНДЕР
+   ================================================================ */
+function dotsHTML(){
+  let h = "";
+  for(let i=0;i<8;i++){
+    const cls = ["dot",
+      i===state.idx ? "cur" : "",
+      state.answers[i] ? "done" : "",
+      i>state.maxReached ? "locked" : ""
+    ].join(" ").trim();
+    h += `<button class="${cls}" data-jump="${i}" ${i>state.maxReached?"disabled":""}>${i+1}</button>`;
+  }
+  return h;
+}
+
+function ribHTML(cls, icon, label, text){
+  return `<div class="rib ${cls}"><span class="ribI">${icon}</span><div><div class="ribL">${label}</div><div class="ribT">${text}</div></div></div>`;
+}
+
+function render(){
+  if(state.idx < 8){
+    const s = STAGES[state.idx];
+    const ans = state.answers[state.idx];
+    const answered = ans !== null;
+
+    const ribs =
+      ribHTML("danger","⚠️","Опасное событие", s.danger) +
+      ribHTML("measure","🛡️","Предусмотренная мера", s.measure) +
+      ribHTML("correct","✅","Правильное решение", s.correct) +
+      ribHTML("wrong","⛔","Неправильное решение", s.wrong) +
+      (s.note ? ribHTML("note","📌", s.note.tag, s.note.text) : "");
+
+    canvas.innerHTML = `
+      <div class="screen" style="display:flex;flex-direction:column;height:100%;">
+        <div class="topbar">
+          <div class="brand">
+            <span class="logo">🛡️</span>
+            <div>
+              <h1>Тренажёр: безопасность кладовщика</h1>
+              <div class="sub">8 точек: событие, защита, её состояние и ваше действие</div>
+            </div>
+          </div>
+          <div class="dots">${dotsHTML()}</div>
+          <div class="stageTag">ТОЧКА ${state.idx+1} / 8</div>
+        </div>
+
+        <div class="work">
+          <!-- ЛЕВАЯ КАРТОЧКА: ситуация и решение -->
+          <div class="card mustfit">
+            <div class="cardHead">
+              <div class="cardIcon">${s.icon}</div>
+              <div>
+                <div class="kicker">Ситуация</div>
+                <div class="cardTitle">${s.title}</div>
+              </div>
+            </div>
+            <div class="situation mustfit">
+              <div class="bodyText"><p>${s.situation}</p></div>
+              <div class="qbox"><span class="qmark">❓</span>${s.question}</div>
+            </div>
+            <div class="answers">
+              <button class="ansBtn ${answered?(ans==="yes"?"pickYes":"dim"):""}" data-ans="yes" ${answered?"disabled":""}>ДА, можно</button>
+              <button class="ansBtn ${answered?(ans==="no"?"pickNo":"dim"):""}" data-ans="no"  ${answered?"disabled":""}>НЕТ, нельзя</button>
+            </div>
+            <div class="feedback ${answered?(ans==="no"?"good":"bad"):""}" id="feedback">
+              ${answered
+                ? (ans==="no"
+                    ? "✅ Верно! Опасную часть операции не начинаем — смотрите разбор."
+                    : "⛔ Ошибка. Правильный ответ — «НЕТ». Объяснение — в разборе.")
+                : ""}
+            </div>
+          </div>
+
+          <!-- ПРАВАЯ КАРТОЧКА: разбор -->
+          <div class="card analysis mustfit">
+            <div class="cardHead">
+              <div class="cardIcon">📖</div>
+              <div>
+                <div class="kicker">Разбор</div>
+                <div class="cardTitle">Событие · мера · решение</div>
+              </div>
+            </div>
+            ${answered ? `
+              <div class="verdict ${ans==="no"?"ok":"no"}">
+                ${ans==="no"
+                  ? "<span>✅</span><span>Правильное решение — <b>«НЕТ»</b>. Мера, которая перестала работать, — это уже не защита.</span>"
+                  : "<span>⛔</span><span>Правильное решение — <b>«НЕТ»</b>. Скорость, опыт и осторожность не закрывают разрыв в защите.</span>"}
+              </div>
+              <div class="analysisText mustfit">${ribs}</div>`
+            : `
+              <div class="placeholder">
+                <div class="phIcon">🔒</div>
+                <div class="phText">Сначала примите решение:<br>нажмите «ДА» или «НЕТ» —<br>здесь появится разбор: опасное событие,<br>мера, правильное и неправильное действия</div>
+              </div>`}
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="navBtn" id="backBtn" ${state.idx===0?"disabled":""}>← Назад</button>
+          <div class="progressWrap">
+            <div class="progressMeta">
+              <span>Прогресс тренажёра</span>
+              <span>${state.answers.filter(a=>a).length} из 8 точек пройдено</span>
+            </div>
+            <div class="progressTrack"><div class="progressFill" style="width:${state.idx/8*100}%"></div></div>
+          </div>
+          <span class="hint" id="hint">${answered?"":"⟶ Сначала ответьте на вопрос"}</span>
+          <button class="navBtn go" id="nextBtn" ${answered?"":"disabled"}>
+            ${state.idx===7 ? "Итог: 4 контрольные точки →" : "Дальше →"}
+          </button>
+        </div>
+      </div>`;
+
+    canvas.querySelectorAll(".ansBtn").forEach(b=>{
+      b.addEventListener("click", ()=>answer(b.dataset.ans));
+    });
+    canvas.querySelectorAll(".dot[data-jump]").forEach(d=>{
+      d.addEventListener("click", ()=>{ state.idx = +d.dataset.jump; render(); });
+    });
+    document.getElementById("backBtn").addEventListener("click", ()=>{ state.idx--; render(); });
+    document.getElementById("nextBtn").addEventListener("click", ()=>{ state.idx++; render(); });
+
+  } else {
+    /* ---------- ИТОГОВЫЙ ЭКРАН ---------- */
+    const score = state.answers.filter(a=>a==="no").length;
+    canvas.innerHTML = `
+      <div class="screen" style="display:flex;flex-direction:column;height:100%;">
+        <div class="topbar">
+          <div class="brand">
+            <span class="logo">🛡️</span>
+            <div>
+              <h1>Тренажёр: безопасность кладовщика</h1>
+              <div class="sub">Итог: собираем решение по контрольным точкам</div>
+            </div>
+          </div>
+          <div class="dots">${dotsHTML()}</div>
+          <div class="stageTag">ИТОГ</div>
+        </div>
+
+        <div class="finalWork">
+          <div class="finalHero">
+            <span class="ficon">🧭</span>
+            <div>
+              <h2>Собираем решение по четырём контрольным точкам</h2>
+              <p>Событие → предусмотренная защита → её фактическое состояние → действие в пределах своей роли</p>
+            </div>
+            <div class="scoreBadge">
+              <div class="num">${score}/8</div>
+              <div class="lbl">ВЕРНЫХ РЕШЕНИЙ</div>
+            </div>
+          </div>
+
+          <div class="stepsRow">
+            ${FINAL_STEPS.map((st,i)=>`
+              <div class="step mustfit">
+                <div class="sTop">
+                  <span class="sNum">${i+1}</span>
+                  <span class="sIcon">${st.icon}</span>
+                  <span class="sTitle">${st.title}</span>
+                </div>
+                <div class="sDesc">${st.desc}</div>
+              </div>`).join("")}
+          </div>
+
+          <div class="finalText mustfit">
+            <p>Все восемь ситуаций различаются внешне, но решение строится одинаково: кладовщик связывает событие, предусмотренную защиту, её фактическое состояние и действие в пределах своей роли.</p>
+            <div class="rule">⚠️ Если все четыре точки подтверждены — операцию выполняют установленным способом. Если хотя бы одна точка неизвестна или изменилась, скорость, опыт и осторожность не закрывают разрыв: нужно восстановить условия или получить решение ответственного до опасной части работы.</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <button class="navBtn" id="backBtn">← К точке 8</button>
+          <div class="progressWrap">
+            <div class="progressMeta">
+              <span>Все 8 точек пройдены</span>
+              <span>${score===8?"Отличный результат!" : score>=5?"Хороший результат — повторите разбор ошибок.":"Перечитайте разборы и пройдите снова."}</span>
+            </div>
+            <div class="progressTrack"><div class="progressFill" style="width:100%"></div></div>
+          </div>
+          <button class="navBtn go" id="restartBtn">↺ Пройти заново</button>
+        </div>
+      </div>`;
+
+    document.getElementById("backBtn").addEventListener("click", ()=>{ state.idx=7; render(); });
+    document.getElementById("restartBtn").addEventListener("click", ()=>{
+      state.idx=0; state.answers=new Array(8).fill(null); state.maxReached=0; render();
+    });
+    canvas.querySelectorAll(".dot[data-jump]").forEach(d=>{
+      d.addEventListener("click", ()=>{ state.idx = +d.dataset.jump; render(); });
+    });
+  }
+  scheduleFit();
+}
+
+function answer(choice){
+  state.answers[state.idx] = choice;
+  if(state.idx>state.maxReached) state.maxReached = state.idx;
+  if(choice==="yes"){
+    // неверный ответ — мгновенная подсветка и сообщение, затем разбор
+    const yes = canvas.querySelector('[data-ans="yes"]');
+    const no  = canvas.querySelector('[data-ans="no"]');
+    const fb  = document.getElementById("feedback");
+    yes.classList.add("pickYes","shake"); no.classList.add("dim");
+    yes.disabled = true; no.disabled = true;
+    fb.className = "feedback bad";
+    fb.textContent = "⛔ Ошибка. Правильный ответ — «НЕТ». Открываем разбор…";
+    setTimeout(render, 800);
+  }else{
+    render();
+  }
+}
+
+/* ================================================================
+   АВТО-МАСШТАБИРОВАНИЕ (без скроллов и потери контента)
+   Сцена имеет естественную высоту (по контенту) и логическую ширину.
+   На широких экранах — две колонки, на узких (порог 900 лог. px)
+   — одна колонка и компактные отступы. Перебором подбирается
+   МАКСИМАЛЬНЫЙ масштаб, при котором сцена целиком вписывается
+   в окно и ни один текст не обрезается.
+   ================================================================ */
+const MAX_LOGIC_W  = 1500;
+const MIN_LOGIC_W  = 320;
+const NARROW_BREAK = 900;
+const APP_MAX_H    = 600;
+
+function fit(){
+  const cw = app.clientWidth;
+  const ch = app.clientHeight;
+
+  const scaleMax = Math.min(1.5, cw / MIN_LOGIC_W);
+
+  let best = null;
+  for(let s = Math.floor(scaleMax*1000)/1000; s >= 0.20; s -= 0.015){
+    const lw = Math.min(cw / s, MAX_LOGIC_W);
+
+    canvas.classList.toggle("narrow", lw < NARROW_BREAK);
+
+    stage.style.width = lw + "px";
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = "0px";
+    stage.style.top  = "0px";
+    void canvas.offsetHeight;   // принудительный синхронный пересчёт layout
+
+    const contentH = canvas.offsetHeight;
+    if(contentH * s > ch + 1) continue;        // сцена вписывается по высоте
+    if(lw * s > cw + 1) continue;              // и по ширине
+
+    let clipped = false;                       // текст не обрезается внутри карточек
+    const els = canvas.querySelectorAll(".mustfit");
+    for(const el of els){
+      if(el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1){
+        clipped = true; break;
+      }
+    }
+    if(clipped) continue;
+
+    best = { s, lw, contentH };
+    break;
+  }
+
+  if(!best){ best = { s:0.20, lw:Math.min(cw/0.20, MAX_LOGIC_W), contentH:ch }; }
+
+  canvas.classList.toggle("narrow", best.lw < NARROW_BREAK);
+  stage.style.width = best.lw + "px";
+  stage.style.transform = `scale(${best.s})`;
+  void canvas.offsetHeight;
+  const contentH = canvas.offsetHeight;
+  const visualW = best.lw * best.s;
+  stage.style.left = ((cw - visualW)/2) + "px";
+  stage.style.top  = "0px";
+}
+
+function scheduleFit(){
+  requestAnimationFrame(()=>requestAnimationFrame(fit));
+}
+new ResizeObserver(()=>fit()).observe(app);
+if(document.fonts && document.fonts.ready){ document.fonts.ready.then(fit); }
+window.addEventListener("load", fit);
+
+/* ================================================================
+   ВСТРОЕННЫЙ РЕСАЙЗЕР (перетаскивание, высота 260..600px)
+   ================================================================ */
+const grip = document.getElementById("grip");
+const tip  = document.getElementById("sizeTip");
+
+const maxH = ()=> Math.min(600, window.innerHeight);
+const MIN_H = 260;
+
+function setH(h){
+  h = Math.round(Math.min(Math.max(h, MIN_H), maxH()));
+  app.style.height = h + "px";
+  tip.textContent = h + " px";
+  fit();
+  return h;
+}
+
+let dragging = false, startY = 0, startH = 0;
+grip.addEventListener("pointerdown", e=>{
+  dragging = true;
+  startY = e.clientY;
+  startH = app.clientHeight;
+  grip.setPointerCapture(e.pointerId);
+  tip.style.display = "block";
+});
+grip.addEventListener("pointermove", e=>{
+  if(!dragging) return;
+  setH(startH + (e.clientY - startY));
+});
+grip.addEventListener("pointerup", ()=>{
+  dragging = false;
+  tip.style.display = "none";
+  try{ localStorage.setItem("trainerH3", app.clientHeight); }catch(_){}
+});
+grip.addEventListener("dblclick", ()=>{ setH(600); try{localStorage.removeItem("trainerH3");}catch(_){} });
+
+window.addEventListener("resize", ()=>{ setH(app.clientHeight); });
+
+/* ================================================================
+   СТАРТ
+   ================================================================ */
+(function init(){
+  let saved = 0;
+  try{ saved = parseInt(localStorage.getItem("trainerH3")||"0",10) || 0; }catch(_){}
+  const h = saved ? Math.min(saved, maxH()) : maxH();
+  app.style.height = h + "px";
+  render();
+})();
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f"}' crossorigin="anonymous"></script>
+</body>
+</html>
