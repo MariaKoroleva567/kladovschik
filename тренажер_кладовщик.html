@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тренажер: действия кладовщика в аварийных ситуациях</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0d1526; }
+  body { font-family:'Inter','Segoe UI',Arial,sans-serif; display:flex; align-items:flex-start; justify-content:center; }
+
+  /* ======= Внешняя рамка тренажера: 100vw, max 600px по высоте ======= */
+  #frame{
+    position:relative; width:100vw; height:min(100vh,600px); max-height:600px;
+    overflow:hidden; background:linear-gradient(135deg,#101c33 0%,#0d1526 60%,#13233f 100%);
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+  }
+  /* ======= Сцена фиксированного макета, масштабируется transform: scale ======= */
+  #stage{
+    position:absolute; left:50%; top:50%; width:1280px; height:600px;
+    transform-origin:center center; overflow:hidden;
+    display:flex; flex-direction:column; color:#e8eefb;
+  }
+
+  /* ======= Ресайзер ======= */
+  #resizer{
+    position:absolute; right:0; bottom:0; width:34px; height:34px; z-index:60;
+    cursor:nwse-resize; display:flex; align-items:flex-end; justify-content:flex-end;
+    padding:5px; opacity:.85; touch-action:none;
+  }
+  #resizer svg{ display:block; }
+  #sizeBadge{
+    position:absolute; right:40px; bottom:8px; z-index:60; font-size:11px; font-weight:600;
+    background:rgba(9,15,28,.85); border:1px solid #2c4470; color:#9fb8e6;
+    padding:3px 9px; border-radius:20px; opacity:0; transition:opacity .2s; pointer-events:none;
+    white-space:nowrap;
+  }
+  #frame.resizing #sizeBadge{ opacity:1; }
+
+  /* ======= Шапка ======= */
+  header{
+    flex:0 0 64px; display:flex; align-items:center; gap:18px; padding:0 26px;
+    background:rgba(8,13,26,.55); border-bottom:1px solid rgba(84,120,190,.25);
+  }
+  .logo{
+    width:40px; height:40px; border-radius:11px; flex:0 0 auto;
+    background:linear-gradient(135deg,#ffb32c,#ff7a1a); display:flex; align-items:center; justify-content:center;
+    font-size:22px;
+  }
+  .htitle{ font-size:16.5px; font-weight:800; letter-spacing:.2px; }
+  .hsub{ font-size:11.5px; color:#8fa7cf; margin-top:2px; }
+  .hspacer{ flex:1; }
+  .stepinfo{ text-align:right; }
+  .stepinfo .lbl{ font-size:11px; color:#8fa7cf; font-weight:600; text-transform:uppercase; letter-spacing:.6px; }
+  .stepinfo .val{ font-size:15px; font-weight:800; color:#ffd479; }
+  .pbar{ width:210px; height:9px; border-radius:6px; background:#1d2c4a; overflow:hidden; }
+  .pbar i{ display:block; height:100%; width:0%; border-radius:6px;
+    background:linear-gradient(90deg,#ffb32c,#ff7a1a); transition:width .4s; }
+
+  main{ flex:1; position:relative; overflow:hidden; }
+  .screen{ position:absolute; inset:0; display:none; }
+  .screen.on{ display:flex; }
+
+  /* ======= Интро / финал ======= */
+  .center{ flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px 90px; gap:16px; }
+  .bigico{ font-size:52px; line-height:1; }
+  .center h1{ font-size:30px; font-weight:800; }
+  .center p.lead{ font-size:15.5px; line-height:1.55; color:#b9c9e8; max-width:900px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:1050px; }
+  .chip{ font-size:12.5px; font-weight:600; color:#cfe0ff; background:#182849; border:1px solid #2c4470;
+    padding:7px 13px; border-radius:20px; }
+  .btn{
+    border:none; cursor:pointer; font-family:inherit; font-weight:800; font-size:16px; color:#1a1206;
+    background:linear-gradient(135deg,#ffc14d,#ff8a25); padding:13px 42px; border-radius:12px;
+    box-shadow:0 6px 18px rgba(255,138,37,.35); transition:transform .12s, box-shadow .12s;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 9px 24px rgba(255,138,37,.45); }
+  .btn.sec{ background:#22355c; color:#dbe7ff; box-shadow:none; border:1px solid #35507f; }
+
+  /* ======= Экран задания ======= */
+  .task{ flex-direction:row; gap:0; }
+  .sit{
+    flex:0 0 46%; padding:24px 26px 18px 30px; display:flex; flex-direction:column; gap:12px;
+    border-right:1px solid rgba(84,120,190,.22); background:rgba(10,17,33,.35);
+  }
+  .scene-tag{ display:flex; align-items:center; gap:10px; }
+  .scene-tag .num{
+    font-size:11px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:#0f1830;
+    background:linear-gradient(135deg,#ffc14d,#ff8a25); padding:5px 12px; border-radius:16px;
+  }
+  .scene-tag .kick{ font-size:11.5px; font-weight:700; color:#7fd0ff; letter-spacing:.4px; text-transform:uppercase; }
+  .sit h2{ font-size:21px; font-weight:800; line-height:1.25; display:flex; gap:12px; align-items:flex-start; }
+  .sit h2 .ico{ font-size:30px; line-height:1; }
+  .sit .txt{ font-size:14.8px; line-height:1.55; color:#c7d6f2; }
+  .sit .txt b{ color:#ffd479; }
+  .quote{
+    margin-top:auto; font-size:13px; line-height:1.5; color:#9fb8e6; border-left:3px solid #ff8a25;
+    padding:8px 12px; background:rgba(255,138,37,.07); border-radius:0 9px 9px 0; font-style:italic;
+  }
+  .opts{ flex:1; padding:24px 30px 18px 26px; display:flex; flex-direction:column; gap:11px; }
+  .q{ font-size:16.5px; font-weight:800; color:#fff; margin-bottom:3px; }
+  .qhint{ font-size:12px; color:#8fa7cf; margin-bottom:6px; }
+  .opt{
+    text-align:left; cursor:pointer; font-family:inherit; border-radius:13px; padding:13px 16px;
+    background:#16233f; border:1.6px solid #2c4470; color:#dbe7ff; font-size:14.2px; line-height:1.45;
+    display:flex; gap:12px; align-items:flex-start; transition:border-color .15s, background .15s, transform .12s;
+  }
+  .opt:hover{ border-color:#ffb32c; background:#1b2c50; transform:translateX(3px); }
+  .opt .letter{
+    flex:0 0 27px; height:27px; border-radius:8px; background:#24375f; color:#ffd479; font-weight:800;
+    font-size:13.5px; display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .opt.good{ border-color:#3ddc84; background:rgba(61,220,132,.12); }
+  .opt.good .letter{ background:#1d7a4b; color:#d5ffe8; }
+  .opt.bad{ border-color:#ff5d6c; background:rgba(255,93,108,.12); }
+  .opt.bad .letter{ background:#8a2e3a; color:#ffd9dd; }
+  .opt:disabled{ cursor:default; transform:none; opacity:.92; }
+
+  /* ======= Модал разбора ======= */
+  #modal{
+    position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center;
+    background:rgba(7,11,22,.72); backdrop-filter:blur(3px);
+  }
+  #modal.on{ display:flex; }
+  .card{
+    width:640px; max-height:470px; border-radius:18px; padding:24px 28px; display:flex; flex-direction:column; gap:12px;
+    background:linear-gradient(160deg,#16233f,#0f1a30); border:1px solid #35507f; box-shadow:0 20px 60px rgba(0,0,0,.55);
+  }
+  .card .verdict{ display:flex; align-items:center; gap:12px; font-size:20px; font-weight:800; }
+  .card .verdict .vico{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:21px; flex:0 0 auto; }
+  .card.okc .verdict{ color:#5cf0a3; } .card.okc .vico{ background:rgba(61,220,132,.18); }
+  .card.badc .verdict{ color:#ff8b96; } .card.badc .vico{ background:rgba(255,93,108,.18); }
+  .card .why{ font-size:14.3px; line-height:1.55; color:#d5e2fa; }
+  .card .note{
+    font-size:13.2px; line-height:1.5; color:#ffe4b0; background:rgba(255,179,44,.09);
+    border:1px solid rgba(255,179,44,.3); border-radius:11px; padding:10px 14px;
+  }
+  .card .note b{ color:#ffc961; }
+  .card .row{ display:flex; justify-content:flex-end; gap:10px; margin-top:4px; }
+
+  /* ======= Финал ======= */
+  .score-big{ font-size:46px; font-weight:800; color:#ffd479; line-height:1; }
+  .res-chips{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:980px; }
+  .rc{ font-size:12px; font-weight:700; padding:7px 12px; border-radius:18px; border:1px solid; }
+  .rc.ok{ color:#7df0b0; border-color:#2c7a52; background:rgba(61,220,132,.1); }
+  .rc.no{ color:#ff9ba5; border-color:#8a2e3a; background:rgba(255,93,108,.1); }
+
+  footer{
+    flex:0 0 30px; display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:10.5px; color:#5f7398; border-top:1px solid rgba(84,120,190,.18); background:rgba(8,13,26,.4);
+  }
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="stage">
+    <header>
+      <div class="logo">🏗️</div>
+      <div>
+        <div class="htitle">Аварийные ситуации на складе</div>
+        <div class="hsub">Учебный тренажер кладовщика · 7 сцен · 9 заданий</div>
+      </div>
+      <div class="hspacer"></div>
+      <div class="stepinfo">
+        <div class="lbl" id="stepLbl">Готовы начать?</div>
+        <div class="val" id="stepVal">—</div>
+      </div>
+      <div class="pbar"><i id="pfill"></i></div>
+    </header>
+
+    <main>
+      <!-- ИНТРО -->
+      <section class="screen center on" id="scrIntro">
+        <div class="bigico">⚠️</div>
+        <h1>Действия кладовщика в аварийных ситуациях</h1>
+        <p class="lead">Перед вами 7 сцен из работы склада. В каждой сцене что-то пошло не так, а коллеги
+        предлагают «быстрые» решения. Ваша задача — выбрать <b style="color:#ffd479">правильное первое действие</b>
+        и проверить, каким должно быть сообщение диспетчеру. После каждого выбора вы получите разбор: почему
+        вариант опасен или верен.</p>
+        <div class="chips">
+          <span class="chip">📦 1. Обрушение груза</span>
+          <span class="chip">🧪 2. Резкий запах из тары</span>
+          <span class="chip">🔥 3. Дым на пути к выходу</span>
+          <span class="chip">🚑 4. Травма у проезда</span>
+          <span class="chip">⚙️ 5. Застрявший короб на конвейере</span>
+          <span class="chip">⚡ 6. Человек у поврежденного кабеля</span>
+          <span class="chip">🚨 7. Сигнал эвакуации</span>
+        </div>
+        <button class="btn" onclick="startGame()">Начать тренировку</button>
+      </section>
+
+      <!-- ЗАДАНИЕ -->
+      <section class="screen task" id="scrTask">
+        <div class="sit">
+          <div class="scene-tag"><span class="num" id="tagNum"></span><span class="kick" id="tagKick"></span></div>
+          <h2><span class="ico" id="sceneIco"></span><span id="sceneTitle"></span></h2>
+          <div class="txt" id="sceneText"></div>
+          <div class="quote" id="sceneQuote"></div>
+        </div>
+        <div class="opts">
+          <div class="q" id="qText"></div>
+          <div class="qhint">Выберите один вариант. Засчитывается ответ с первой попытки.</div>
+          <div id="optBox" style="display:flex;flex-direction:column;gap:11px;flex:1;"></div>
+        </div>
+      </section>
+
+      <!-- ФИНАЛ -->
+      <section class="screen center" id="scrEnd">
+        <div class="bigico" id="endIco">🏆</div>
+        <div class="score-big" id="endScore"></div>
+        <h1 style="font-size:24px" id="endTitle"></h1>
+        <p class="lead" id="endText"></p>
+        <div class="res-chips" id="endChips"></div>
+        <div style="display:flex;gap:12px">
+          <button class="btn" onclick="startGame()">Пройти еще раз</button>
+        </div>
+      </section>
+
+      <!-- МОДАЛ РАЗБОРА -->
+      <div id="modal">
+        <div class="card" id="mCard">
+          <div class="verdict"><span class="vico" id="mIco"></span><span id="mTitle"></span></div>
+          <div class="why" id="mWhy"></div>
+          <div class="note" id="mNote" style="display:none"></div>
+          <div class="row">
+            <button class="btn sec" id="mRetry" onclick="closeModal(false)" style="display:none">Попробовать снова</button>
+            <button class="btn" id="mNext" onclick="closeModal(true)" style="display:none">Дальше →</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>Материал: «Действия при аварийных ситуациях на складе» · Тренажер не заменяет инструктаж на рабочем месте</footer>
+  </div>
+
+  <div id="sizeBadge"></div>
+  <div id="resizer" title="Потяните, чтобы изменить размер. Двойной клик — на весь экран">
+    <svg width="16" height="16" viewBox="0 0 16 16"><path d="M15 1 1 15M15 7 7 15M15 12l-3 3" stroke="#6f8ec4" stroke-width="1.8" stroke-linecap="round"/></svg>
+  </div>
+</div>
+
+<script>
+/* ================== ДАННЫЕ (полностью по исходному материалу) ================== */
+const TASKS = [
+{
+  scene:1, ico:"📦", kick:"Ситуация",
+  title:"Короба упали, но падение еще не закончилось",
+  text:"Часть груза лежит на полу, а верхние короба на паллете <b>наклонены в сторону прохода</b>. Рядом пешеходный проход и движение техники.",
+  quote:"Коллега предлагает: «Давай быстро оттащим упавшие места, пока техника не подъехала и товар не помяли!»",
+  q:"Что является правильным первым действием?",
+  opts:[
+    {t:"Быстро убрать ближайшие короба, чтобы открыть доступ к проходу, пока не подъехала техника.", ok:false,
+     why:"Вариант «убрать ближайшие короба» открывает доступ к проходу, но вводит человека в траекторию следующего падения: верхний ряд наклонен и может обрушиться в любой момент."},
+    {t:"Поддержать наклонившийся верхний ряд палкой, чтобы он не съехал, и затем разобрать завал.", ok:false,
+     why:"«Поддержать верхний ряд палкой» добавляет нерасчетную опору и заставляет приблизиться к неустойчивой массе. Это не удержит груз и ставит работника под возможное падение."},
+    {t:"Не входить в возможную зону дальнейшего падения, предупредить людей, прекратить движение рядом установленным способом и сообщить точный адрес.", ok:true,
+     why:"Верно. Разбор начинается только после проверки устойчивости и организации безопасной работы уполномоченными лицами."}
+  ],
+  note:"<b>Важно:</b> если под грузом может находиться человек, это сразу сообщают диспетчеру и экстренной службе. Самостоятельное перемещение тяжелых элементов может вызвать новое обрушение и превратить помогающего во второго пострадавшего."
+},
+{
+  scene:1, ico:"📞", kick:"Проверяем сообщение",
+  title:"Что передать диспетчеру о падении груза?",
+  text:"Опасная зона ограждена, люди предупреждены. Теперь нужно передать сообщение. В нем должны быть <b>точка</b>, <b>продолжающаяся опасность</b> и <b>действия работников</b>.",
+  quote:"Причину падения и возможность дальнейшей эксплуатации определят после защиты места — не в первом сообщении.",
+  q:"Какое сообщение диспетчеру правильное?",
+  opts:[
+    {t:"«В проходе упали коробки».", ok:false,
+     why:"Фраза «в проходе упали коробки» недостаточна: в ней нет точного адреса, нет описания продолжающейся опасности и нет информации о действиях работников."},
+    {t:"«Ряд 4, секция 9, часть коробов упала в пешеходный проход, верхний ряд наклонен к краю, людей под видимой частью нет, к секции не подходим».", ok:true,
+     why:"Верно. В сообщении есть точка (ряд 4, секция 9), продолжающаяся опасность (верхний ряд наклонен к краю) и действие работников (к секции не подходим)."},
+    {t:"«Стеллаж, похоже, перегрузили — сейчас разберем завал и продолжим работу».", ok:false,
+     why:"Причину падения и возможность дальнейшей эксплуатации определяют только после защиты места и осмотра уполномоченными лицами, а разбирать завал самостоятельно нельзя."}
+  ],
+  note:"<b>Формула сообщения:</b> точка → продолжающаяся опасность → действие работников. Без догадок о причинах."
+},
+{
+  scene:2, ico:"🧪", kick:"Ситуация",
+  title:"Из поврежденной тары идет резкий запах",
+  text:"На приемке под коробом появилось <b>пятно</b>, рядом ощущается <b>резкий запах</b>. Что за вещество — неизвестно.",
+  quote:"Работник предлагает: «Надену обычные перчатки, подниму короб на тележку и вывезу его к открытым воротам — проветрится».",
+  q:"Что является правильным действием?",
+  opts:[
+    {t:"Надеть обычные перчатки, поднять короб на тележку и вывезти его к открытым воротам.", ok:false,
+     why:"Такой вариант расширит маршрут загрязнения и может приблизить неизвестное вещество к людям, технике или источнику зажигания. Обычные перчатки не подтверждают защиту от конкретного состава, а открытые ворота не заменяют установленную вентиляцию и план ликвидации."},
+    {t:"Засыпать пятно первым попавшимся сорбентом и проверить реакцию небольшим количеством вещества.", ok:false,
+     why:"Кладовщик не берет случайный сорбент и не проверяет реакцию небольшим количеством вещества. Если локальный план предусматривает действия специально подготовленного работника, тот применяет установленные СИЗ и средства."},
+    {t:"Прекратить контакт, увеличить дистанцию, предупредить людей и ограничить доступ предусмотренным способом с безопасной стороны.", ok:true,
+     why:"Верно. Ответственному передают адрес, маркировку из доступных документов, размер пятна, запах и наличие людей — но не называют вещество по догадке."}
+  ],
+  note:"<b>В сообщении ответственному:</b> адрес, маркировка из документов, размер пятна, запах, наличие людей. Вещество по догадке не называют."
+},
+{
+  scene:3, ico:"🔥", kick:"Ситуация",
+  title:"Дым появился между работником и привычным выходом",
+  text:"В конце ряда виден <b>дым</b>, ближайший обычный маршрут проходит в его сторону. Другой выход дальше, но <b>обозначен планом эвакуации</b>. В шкафчике рядом с дымом остались телефон и документы.",
+  quote:"Дым может скрывать огонь, токсичные продукты горения и препятствия — знакомый проход перестал быть безопасным.",
+  q:"Что является правильным действием?",
+  opts:[
+    {t:"Быстро проскочить привычным коротким маршрутом через задымленный участок.", ok:false,
+     why:"Движение по привычке сокращает путь только «на плане памяти». Дым может скрывать огонь, токсичные продукты горения и препятствия, поэтому знакомый проход перестал быть безопасным."},
+    {t:"Сначала вернуться к шкафчику за телефоном и документами, а потом идти к дальнему выходу.", ok:false,
+     why:"За вещами не возвращаются: возврат приближает к дыму и задерживает выход. На месте сбора выполняется установленный учет людей."},
+    {t:"Подать сигнал по установленному порядку, сообщить пожарной охране точное место признаков горения, предупредить людей и выйти безопасным путем эвакуации по плану.", ok:true,
+     why:"Верно. Дальний, но обозначенный планом путь — безопасный. За вещами не возвращаются, а на месте сбора выполняют установленный учет людей."}
+  ],
+  note:"<b>Об огнетушителе:</b> его применяют только при отсутствии угрозы жизни, в пределах обучения и при свободном пути отхода. Если дым перекрывает очаг или путь — кладовщик эвакуируется, а не приближается для оценки размера пожара. <b>ВНИМАНИЕ:</b> фраза «пожар маленький» без безопасного обзора не является основанием оставаться. Нарастание дыма или нагрева требует немедленного отхода, даже если пламя не видно."
+},
+{
+  scene:4, ico:"🚑", kick:"Ситуация",
+  title:"Работник травмирован рядом с транспортным проездом",
+  text:"Тележка остановлена, но в соседнем проезде <b>продолжают двигаться погрузчики</b>. Пострадавший сидит на полу, держится за ногу и <b>отвечает на обращение</b>.",
+  quote:"Хочется сразу броситься на помощь — но проезд рядом остается действующим.",
+  q:"С чего правильно начать?",
+  opts:[
+    {t:"Сразу присесть рядом с пострадавшим и осмотреть ногу.", ok:false,
+     why:"Если сразу присесть рядом, оба человека окажутся у транспортной траектории — движение погрузчиков в соседнем проезде не остановлено."},
+    {t:"Поднять пострадавшего и проверить, может ли он идти сам.", ok:false,
+     why:"Попытка поднять пострадавшего может ухудшить его состояние, а контроль над движением техники будет потерян. Без продолжающейся угрозы пострадавшего не перемещают ради удобства."},
+    {t:"Сначала исключить наезд по установленному порядку, предупредить водителей и сохранить безопасную границу; затем вызвать помощь, позвать обученного первой помощи, организовать аптечку и встречу служб.", ok:true,
+     why:"Верно. Сначала исключается наезд, затем — вызов помощи, обученный первой помощи работник, аптечка и встреча служб. Без продолжающейся угрозы пострадавшего не перемещают ради удобства."}
+  ],
+  note:"<b>Порядок:</b> исключить наезд → предупредить водителей → безопасная граница → вызов помощи → обученный работник, аптечка, встреча служб."
+},
+{
+  scene:4, ico:"📞", kick:"Проверяем сообщение",
+  title:"Что передать о травмированном работнике?",
+  text:"Движение техники остановлено по внутреннему порядку, помощь организуется. Диспетчер должен получить <b>наблюдаемые сведения</b> и иметь возможность задать уточняющие вопросы.",
+  quote:"Диагноза, предположения о переломе и обещания доставить человека самостоятельно в сообщении быть не должно.",
+  q:"Какое сообщение правильное?",
+  opts:[
+    {t:"«Кому-то стало плохо на складе, приезжайте скорее!»", ok:false,
+     why:"В сообщении нет точки (где именно), нет наблюдаемых сведений о состоянии и нет информации о принятых мерах — диспетчеру не с чем работать."},
+    {t:"«Склад 2, зона комплектования, ряд 7. Один работник травмировал ногу у ручной тележки, находится в сознании и отвечает. Движение по соседнему проезду прекращено по внутреннему порядку, встречающий будет у ворот 3».", ok:true,
+     why:"Верно. Диспетчер получает наблюдаемые сведения (точное место, характер травмы, сознание) и данные о мерах (движение прекращено, организована встреча) — и может задать уточняющие вопросы."},
+    {t:"«У работника перелом ноги, сами довезем его до медпункта на тележке».", ok:false,
+     why:"«Перелом» — это диагноз-предположение, а обещание доставить человека самостоятельно недопустимо: перемещение без продолжающейся угрозы может ухудшить состояние."}
+  ],
+  note:"<b>В сообщении:</b> только наблюдаемое — место, что случилось, сознание/ответы, принятые меры, место встречи служб."
+},
+{
+  scene:5, ico:"⚙️", kick:"Ситуация",
+  title:"На конвейере застрял короб",
+  text:"Лента остановилась после перекоса короба, но <b>индикатор питания продолжает гореть</b>. Остановка движения не означает снятия энергии.",
+  quote:"Коллега предлагает: «Я подержу кнопку останова, а ты быстро вытяни упаковку рукой из-под ограждения».",
+  q:"Что является правильным действием?",
+  opts:[
+    {t:"Пока коллега удерживает кнопку останова, быстро вытянуть короб рукой из-под ограждения.", ok:false,
+     why:"Остановка движения не означает снятия энергии. Механизм может запуститься автоматически, освободить накопленное усилие или потянуть короб после изменения положения — рука окажется в опасной зоне."},
+    {t:"Сделать короткий холостой запуск ленты — пусть конвейер сам выбросит перекошенный короб.", ok:false,
+     why:"Короткий холостой запуск не выполняют рядом с людьми и грузом по инициативе кладовщика. После ремонта конвейер возвращают в работу только после предусмотренной проверки."},
+    {t:"Не проникать за ограждение и не освобождать заклинивание руками; сообщить номер оборудования и признаки отказа уполномоченному работнику.", ok:true,
+     why:"Верно. Безопасное отключение, блокировку и устранение заклинивания выполняет уполномоченный работник по установленной процедуре."}
+  ],
+  note:"<b>Помните:</b> горящий индикатор питания — признак того, что энергия не снята. Возврат конвейера в работу — только после предусмотренной проверки."
+},
+{
+  scene:6, ico:"⚡", kick:"Ситуация",
+  title:"Человек лежит рядом с поврежденным кабелем",
+  text:"У зарядной зоны работник <b>лежит возле оборудования</b>, на полу виден <b>поврежденный кабель</b>. Отключение источника не подтверждено.",
+  quote:"Другой сотрудник собирается взять пострадавшего за руку и оттащить его от установки.",
+  q:"Каким должно быть первое действие?",
+  opts:[
+    {t:"Взять пострадавшего за руку и оттащить его от установки.", ok:false,
+     why:"При возможном воздействии электричества нельзя касаться человека, оборудования и кабеля до безопасного прекращения источника. Приближение без подтвержденного отключения может привести к поражению помогающего."},
+    {t:"Отвести кабель в сторону случайной палкой, мокрой тканью или металлическим предметом.", ok:false,
+     why:"Нельзя использовать случайную палку, мокрую ткань или металлический предмет для отведения кабеля. Этот урок не обучает работам в электроустановках и не разрешает кладовщику выполнять отключение вне его инструкции."},
+    {t:"Не входить в опасную зону, вызвать экстренную помощь и организовать отключение уполномоченным работником предусмотренным безопасным способом.", ok:true,
+     why:"Верно. Только после устранения угрозы обученный человек оценивает состояние пострадавшего и оказывает первую помощь по своей подготовке и указаниям диспетчера."}
+  ],
+  note:"<b>Правило:</b> до подтвержденного отключения — не касаться человека, оборудования и кабеля. Отключение выполняет только уполномоченный работник."
+},
+{
+  scene:7, ico:"🚨", kick:"Ситуация",
+  title:"Сигнал эвакуации прозвучал во время разгрузки",
+  text:"Машина стоит у рампы, часть товара на площадке, <b>сканирование партии не закончено</b>. Звучит сигнал эвакуации.",
+  quote:"Руководитель участка просит: «Сначала закрой документы и перевези два поддона внутрь, чтобы не оставлять их снаружи».",
+  q:"Что является правильным действием?",
+  opts:[
+    {t:"Сначала закрыть документы и переместить два поддона внутрь, потом идти к месту сбора.", ok:false,
+     why:"Сигнал эвакуации переводит приоритет с сохранения товара на выход людей. Дополнительные операции задерживают работника в зоне и могут вывести его навстречу технике или дыму."},
+    {t:"Выйти к месту сбора, а затем самовольно вернуться за оставшимся товаром, чтобы он не пропал.", ok:false,
+     why:"На месте сбора работник отмечается по принятому порядку и не возвращается самовольно за товаром. Разрешение на возвращение дает только установленное ответственное лицо после подтверждения безопасности."},
+    {t:"Прекратить операцию безопасным способом, не выполняя новых перемещений, и следовать по установленному пути к месту сбора.", ok:true,
+     why:"Верно. Состояние транспорта и груза передают ответственному, если это не задерживает эвакуацию и предусмотрено инструкцией. На месте сбора — отметка по принятому порядку."}
+  ],
+  note:"<b>Приоритет при сигнале эвакуации:</b> люди, а не товар. Возвращение — только с разрешения ответственного лица после подтверждения безопасности."
+}
+];
+
+/* ================== ЛОГИКА ТРЕНАЖЕРА ================== */
+let cur = 0, firstTry = true, results = [];
+
+const $ = id => document.getElementById(id);
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); }
+
+function startGame(){
+  cur = 0; results = [];
+  renderTask();
+}
+
+function renderTask(){
+  if(cur >= TASKS.length){ return renderEnd(); }
+  const t = TASKS[cur];
+  firstTry = true;
+  $('tagNum').textContent = 'Сцена ' + t.scene + ' из 7';
+  $('tagKick').textContent = t.kick;
+  $('sceneIco').textContent = t.ico;
+  $('sceneTitle').textContent = t.title;
+  $('sceneText').innerHTML = t.text;
+  $('sceneQuote').innerHTML = t.quote;
+  $('qText').textContent = t.q;
+  $('stepLbl').textContent = 'Задание';
+  $('stepVal').textContent = (cur+1) + ' / ' + TASKS.length;
+  $('pfill').style.width = (cur / TASKS.length * 100) + '%';
+
+  const order = t.opts.map((o,i)=>i).sort(()=>Math.random()-0.5);
+  const box = $('optBox'); box.innerHTML = '';
+  order.forEach((oi,vis)=>{
+    const o = t.opts[oi];
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.innerHTML = '<span class="letter">'+String.fromCharCode(65+vis)+'</span><span>'+o.t+'</span>';
+    b.onclick = ()=>pick(b, o, t);
+    box.appendChild(b);
+  });
+  show('scrTask');
+}
+
+let lastCorrect = false;
+function pick(btn, opt, task){
+  document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  btn.classList.add(opt.ok ? 'good' : 'bad');
+  lastCorrect = opt.ok;
+  if(opt.ok && firstTry) results.push(true);
+  if(!opt.ok && firstTry){ results.push(false); firstTry = false; }
+  // модал
+  const card = $('mCard');
+  card.className = 'card ' + (opt.ok ? 'okc' : 'badc');
+  $('mIco').textContent = opt.ok ? '✔' : '✖';
+  $('mTitle').textContent = opt.ok ? 'Верно' : 'Опасное решение';
+  $('mWhy').textContent = opt.why;
+  const noteEl = $('mNote');
+  if(opt.ok && task.note){ noteEl.style.display='block'; noteEl.innerHTML = task.note; }
+  else noteEl.style.display='none';
+  $('mRetry').style.display = opt.ok ? 'none' : 'inline-block';
+  $('mNext').style.display  = opt.ok ? 'inline-block' : 'none';
+  $('modal').classList.add('on');
+}
+
+function closeModal(next){
+  $('modal').classList.remove('on');
+  if(next){ cur++; renderTask(); }
+  else { document.querySelectorAll('.opt').forEach(b=>{ b.disabled=false; b.classList.remove('bad'); }); }
+}
+
+function renderEnd(){
+  const ok = results.filter(Boolean).length, total = TASKS.length;
+  $('pfill').style.width = '100%';
+  $('stepLbl').textContent = 'Результат';
+  $('stepVal').textContent = ok + ' / ' + total;
+  $('endScore').textContent = ok + ' из ' + total;
+  const pct = ok/total;
+  $('endIco').textContent = pct===1 ? '🏆' : pct>=0.7 ? '👍' : '📘';
+  $('endTitle').textContent = pct===1 ? 'Отлично! Все решения безопасны с первой попытки.'
+    : pct>=0.7 ? 'Хороший результат, но есть что закрепить.'
+    : 'Стоит повторить материал и пройти тренажер снова.';
+  $('endText').textContent = 'Главные принципы: не входить в опасную зону, предупредить людей, ограничить доступ, сообщить точный адрес и наблюдаемые факты без догадок. Отключение энергии, разбор завалов и ликвидацию выполняют только уполномоченные работники.';
+  const chips = $('endChips'); chips.innerHTML='';
+  TASKS.forEach((t,i)=>{
+    const c = document.createElement('span');
+    c.className = 'rc ' + (results[i] ? 'ok' : 'no');
+    c.textContent = (results[i] ? '✓ ' : '✗ ') + t.ico + ' Сцена ' + t.scene + (t.kick.includes('сообщение') ? ' · сообщение' : '');
+    chips.appendChild(c);
+  });
+  show('scrEnd');
+}
+
+/* ================== МАСШТАБИРОВАНИЕ (без скроллов, без потери контента) ================== */
+const BASE_W = 1280, BASE_H = 600;
+const frame = $('frame'), stage = $('stage');
+let customW = null, customH = null; // размеры, заданные ресайзером
+
+function maxW(){ return window.innerWidth; }
+function maxH(){ return Math.min(window.innerHeight, 600); }
+
+function applySize(){
+  const w = customW ? Math.min(customW, maxW()) : maxW();
+  const h = customH ? Math.min(customH, maxH()) : maxH();
+  frame.style.width = w + 'px';
+  frame.style.height = h + 'px';
+  const s = Math.min(w / BASE_W, h / BASE_H);
+  stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  $('sizeBadge').textContent = Math.round(w) + ' × ' + Math.round(h) + ' px · ' + Math.round(s*100) + '%';
+}
+window.addEventListener('resize', applySize);
+applySize();
+
+/* ================== ВСТРОЕННЫЙ РЕСАЙЗЕР ================== */
+const rz = $('resizer');
+let drag = null;
+rz.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  rz.setPointerCapture(e.pointerId);
+  const r = frame.getBoundingClientRect();
+  drag = { x:e.clientX, y:e.clientY, w:r.width, h:r.height };
+  frame.classList.add('resizing');
+});
+rz.addEventListener('pointermove', e=>{
+  if(!drag) return;
+  customW = Math.max(340, Math.min(maxW(), drag.w + (e.clientX - drag.x)));
+  customH = Math.max(220, Math.min(maxH(), drag.h + (e.clientY - drag.y)));
+  applySize();
+});
+rz.addEventListener('pointerup', ()=>{ drag=null; setTimeout(()=>frame.classList.remove('resizing'),800); });
+rz.addEventListener('dblclick', ()=>{ customW=null; customH=null; applySize(); frame.classList.add('resizing'); setTimeout(()=>frame.classList.remove('resizing'),800); });
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v3d52b47920f24c319d37e2661827c42b1787588026925" integrity="sha512-d9sL6GJLXn6fInD1+TVXhTcQOsmxeHfmHAvwGDIxp5TO+uo1fiWW7mHomMj4MLRlCsJDTqXzWLHJFFlPCEIj/A==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f"}' crossorigin="anonymous"></script>
+</body>
+</html>
